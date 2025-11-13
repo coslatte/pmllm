@@ -65,7 +65,7 @@ docs: - README.md - API_DOCUMENTATION.md - DATASET.md
 
 agent_instructions:
 priority_order: ["milestones.stage-1", "milestones.stage-2", "milestones.stage-3", "milestones.stage-4"]
-behavior_guidelines: - "When unsure, return 'I don't know' and provide suggested data collection steps." - "Always include data provenance and confidence score in answers."
+behavior_guidelines: - "When unsure, return 'I don't know' and provide suggested data collection steps." - "Always include data provenance and confidence score in answers." - "Document all changes made by agents in \`docs/CHANGES.md\`."
 task_format: - input_schema: "JSON object matching the task contract" - expected_output: "JSON with 'result', 'explanation', 'confidence', 'sources'"
 error_handling: - "If an external data source is missing, flag data dependency and fall back to conservative default."
 

@@ -1,6 +1,8 @@
 from pathlib import Path
 import csv
 from typing import Iterable, Optional, Tuple
+import tarfile
+import tempfile
 
 
 def _open_text(path: Path, encoding: str = "utf-8"):
@@ -139,6 +141,7 @@ def check_integrity(path: Path, to_check: Path, sample: int = 50) -> None:
 
 def ensure_tsv(path: Path, sample: int = 10) -> None:
     """Raise if file is not tab-delimited."""
+
     info = validate_tabular(path, delimiter=None, sample=sample)
     if info["delimiter"] != "\t":
         raise ValueError(f"Not TSV (tab-delimited): {path}")
@@ -146,6 +149,7 @@ def ensure_tsv(path: Path, sample: int = 10) -> None:
 
 def convert_path_to_csv(src: Path, out_dir: Path) -> int:
     """Convert a TSV file or all TSV files under a directory; returns count."""
+
     src = Path(src)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -170,6 +174,35 @@ def convert_path_to_csv(src: Path, out_dir: Path) -> int:
     return converted
 
 
-def transalte_to_csv() -> None:  # Deprecated
-    """Deprecated: use convert_to_csv instead."""
-    raise NotImplementedError("Use convert_to_csv or convert_path_to_csv")
+def extract_tar_to_temp(tar_path: Path) -> Path:
+    """Extract tar file to a temp dir and return the temp dir path."""
+
+    temp_dir = Path(tempfile.mkdtemp())
+    with tarfile.open(tar_path, "r") as tar:
+        tar.extractall(temp_dir)
+    return temp_dir
+
+
+def process_tar_dir(tar_dir: Path, out_dir: Path) -> int:
+    """Extract all tar files in dir, convert TSVs to CSV in out_dir; return converted count."""
+
+    tar_dir = Path(tar_dir)
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    converted = 0
+    for tar_file in tar_dir.glob("*"):
+        if tar_file.is_file():
+            try:
+                extract_dir = extract_tar_to_temp(tar_file)
+                # Now convert TSVs from extract_dir to out_dir
+                for tsv_file in extract_dir.rglob("*.tsv"):
+                    if tsv_file.is_file():
+                        ensure_tsv(tsv_file)
+                        dst = out_dir / (tsv_file.stem + ".csv")
+                        convert_to_csv(tsv_file, dst, src_delimiter="\t")
+                        converted += 1
+            except tarfile.TarError:
+                # Skip if not a valid tar file
+                continue
+    return converted

@@ -44,6 +44,12 @@ Notes on the MusicBrainz fragment:
 - `plan/PLAN.md` — structured plan (machine- and human-friendly)
 - `requirements.txt` — environment dependencies and notes about client libraries to call Gemma 3 and vector DB
 
+## Documentation
+
+- `docs/CHANGES.md` — Log of all changes made to the project, especially by agents.
+- `plan/PLAN.md` — Structured project plan.
+- `plan/original_plan.md` — Original plan with annotations.
+
 Additional notes:
 
 - Vector DB: Milvus is our chosen production vector store. We'll use Milvus's Python client for ingestion and retrieval; configuration (host/port/credentials) will be provided through env vars.
