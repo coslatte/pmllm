@@ -11,7 +11,7 @@ This repository contains a project plan and supporting material for building a K
 ## High-level architecture (RAG + KG)
 
 1. Document & KG ingestion: convert documents and KG nodes into embeddings and index them in a vector store (and keep KG for structured queries).
-2. Embeddings & Vector Store: an embeddings model (cloud or open-source) creates vectors for documents; a vector DB (e.g., Pinecone, Weaviate, Milvus, or a local FAISS store) provides nearest-neighbor retrieval.
+2. Embeddings & Vector Store: an embeddings model (cloud or open-source) creates vectors for documents; a vector DB provides nearest-neighbor retrieval. For this project we will use Milvus as the production vector database (development may use local FAISS for quicker iteration).
 3. Retriever: given a user query, retrieve relevant passages/documents and KG facts from the vector store and KG.
 4. Generator (Gemma 3): compose a prompt that includes retrieved context and use Gemma 3 (via API) to generate answers, recommendations, and explanations. No fine-tuning required — rely on prompt engineering and retrieval context.
 5. Orchestration & business logic: combine KG reasoning, retrieved passages, prompt templates, and post-processing (citations, confidence scoring, ranking) to produce final outputs.
@@ -27,6 +27,13 @@ See `plan/PLAN.md` for the structured, agent-friendly plan and task contracts.
 - Artist/genre taxonomies and discographies
 - Curated Q&A pairs and annotated datasets for validation and retrieval testing
 - User profiles and interaction logs (privacy-preserving, anonymized)
+- Fragmented MusicBrainz dataset (extracted portion): a dataset we downloaded from a MusicBrainz server snapshot; the original source uses PostgreSQL for tabular music metadata and Neo4j for relations. We'll extract documents and KG nodes from this fragmented dump and ingest them into the vector store (Milvus) and our KG layer (Neo4j or a compatible graph store).
+
+Notes on the MusicBrainz fragment:
+
+- The fragment contains artist, release, recording, and relationship data exported from a MusicBrainz server. The upstream storage format for that data is PostgreSQL (core tables) and Neo4j for richer relation exports in some pipelines.
+- Our ingestion pipeline will include scripts to read the PostgreSQL dump and Neo4j exports, convert relevant rows/graphs to text passages and KG nodes, create embeddings, and upsert them into Milvus and the KG store.
+- Do not commit database dumps or credentials to the repo. Document connection and import steps in `scripts/README.md` or `docs/DEPLOY.md` and load secrets via environment variables or a secure vault.
 
 ## Deliverables (planned)
 
@@ -36,6 +43,11 @@ See `plan/PLAN.md` for the structured, agent-friendly plan and task contracts.
 - `evaluator.py` — evaluation and monitoring code (retrieval and generation metrics)
 - `plan/PLAN.md` — structured plan (machine- and human-friendly)
 - `requirements.txt` — environment dependencies and notes about client libraries to call Gemma 3 and vector DB
+
+Additional notes:
+
+- Vector DB: Milvus is our chosen production vector store. We'll use Milvus's Python client for ingestion and retrieval; configuration (host/port/credentials) will be provided through env vars.
+- KG & relations: Neo4j will be the primary graph database for storing relations and KG facts derived from the MusicBrainz fragment. We will keep KG queries and vector retrievals linked via stable identifiers so we can surface structured relations alongside retrieved passages.
 
 ## Agent usage notes
 
@@ -69,18 +81,3 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
-
-(If you don't have `requirements.txt` yet, create it with the minimal dependencies you plan to use.)
-
-## Contributing
-
-- Follow the milestones in `plan/PLAN.md`. Open issues for new tasks and attach small, testable PRs.
-- Document any external datasets in `DATASET.md` and keep provenance metadata with ingested items.
-
-## License
-
-Choose a license appropriate for your project (e.g., MIT, Apache-2.0) and add a `LICENSE` file.
-
----
-
-If you'd like, I can scaffold the repository next: create `requirements.txt`, minimal Python stubs for the deliverables, and a tiny test harness that runs a few acceptance checks against the `plan/PLAN.md` contracts. I can also add example scripts to create embeddings and populate a local FAISS vector store as a starting point. Which of those would you like me to do now?
