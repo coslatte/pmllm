@@ -3,6 +3,7 @@ import csv
 from typing import Iterable, Optional, Tuple
 import tarfile
 import tempfile
+import sys
 
 
 def _open_text(path: Path, encoding: str = "utf-8"):
@@ -100,6 +101,11 @@ def convert_to_csv(
     if src_delimiter is None:
         src_delimiter = detect_delimiter(src)
 
+    try:
+        csv.field_size_limit(sys.maxsize)
+    except OverflowError:
+        csv.field_size_limit(2_147_483_647)
+
     with (
         _open_text(src, encoding=encoding) as fr,
         open(str(dst), "w", encoding=encoding, newline="") as fw,
@@ -143,8 +149,16 @@ def ensure_tsv(path: Path, sample: int = 10) -> None:
     """Raise if file is not tab-delimited."""
 
     info = validate_tabular(path, delimiter=None, sample=sample)
-    if info["delimiter"] != "\t":
-        raise ValueError(f"Not TSV (tab-delimited): {path}")
+    if info["delimiter"] == "\t":
+        return
+
+    # Fallback: explicitly validate using tab delimiter in case text content contains
+    # more commas/semicolons than tabs (common in free-form annotations).
+    forced = validate_tabular(path, delimiter="\t", sample=sample)
+    if len(forced["col_counts"]) == 1 and next(iter(forced["col_counts"])) > 1:
+        return
+
+    raise ValueError(f"Not TSV (tab-delimited): {path}")
 
 
 def convert_path_to_csv(src: Path, out_dir: Path) -> int:

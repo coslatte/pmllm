@@ -10,6 +10,7 @@ This file documents all changes made to the project, especially those implemente
 - **CLI Development**: Created `cli.py` with a CLI class to extract tar files, verify TSV formats, and convert to CSV. Handles directories with mixed tar and TSV files.
 - **Utils Expansion**: Extended `utils/reader.py` with functions for delimiter detection, tabular validation, CSV conversion, and tar extraction.
 - **Documentation**: Created `docs/` directory for change logs and additional documentation.
+- **Large Field Support**: Updated `utils/reader.py` to lift the CSV field size limit so MusicBrainz annotation files convert without errors.
 
 ## Future Changes
 
