@@ -1,5 +1,9 @@
+from cli import CLI
+
+
 def main():
-    print("Hello from pmllm!")
+    print("Running CLI...")
+    CLI.run()
 
 
 if __name__ == "__main__":
