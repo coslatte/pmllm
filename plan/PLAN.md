@@ -26,12 +26,13 @@ title: Identify problem and users
 output: "Problem statement, primary user personas, representative questions" - id: 1.2
 title: Set measurable goals
 output: "List of KPIs and acceptance criteria" - id: stage-2
-name: Model selection & fine-tuning
+name: Model selection & RAG design
 tasks: - id: 2.1
-title: Select base model
-criteria: ["inference latency", "language understanding", "compute budget"] - id: 2.2
-title: Fine-tune for domain
-steps: ["prepare domain dataset", "train with small LR", "validate on holdout"] - id: stage-3
+title: Select embeddings, vector DB, and generator
+criteria: ["embedding quality (semantic recall)", "vector-db latency & cost", "Gemma 3 API latency and cost", "deployment constraints"] - id: 2.2
+title: Design retrieval & prompt pipeline (RAG)
+steps: ["prepare document/KG ingestion and embedding pipeline", "define retrieval strategy (chunking, metadata filters, hybrid KG queries)", "design prompt templates and grounding format for Gemma 3", "validate with retrieval+generation experiments"] - id: stage-3
+name: Core features
 name: Core features
 tasks: - id: 3.1
 title: Content recommender

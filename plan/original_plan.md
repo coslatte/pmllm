@@ -1,5 +1,7 @@
 # Grafos de Conocimiento
 
+> NOTE (project update, 2025-11-13): The project pivoted away from fine-tuning models and will adopt a Retrieval-Augmented Generation (RAG) approach using Gemma 3 as the generator. The repository and plans were updated to reflect embeddings + vector DB retrieval plus KG augmentation instead of on-prem fine-tuning.
+
 Un Grafo de Conocimiento (Knowledge Graph) es una base de datos semántica que almacena información en forma de nodos (entidades) y aristas (relaciones), permitiendo representar conocimiento del mundo real de manera estructurada e interconectad. Las tareas de cada sem,ana deben ser hechas por los equipos son evaluativas.
 
 ## Etapa 1: Definición del Propósito y Objetivos
@@ -45,19 +47,20 @@ DistilBERT: 40% más rápido que BERT, 97% de su performance
 BERT Base: Buen balance, ampliamente probado
 RoBERTa: Mejor performance en algunas tareas, más pesado
 
-### Paso 2.2: Fine-tuning para Dominio Específico
+### Paso 2.2: Diseño RAG y validación
 
-#### Objetivo: Adaptar el modelo general a los temas y estilo de la red social profesional
+#### Objetivo: Construir un pipeline de Retrieval-Augmented Generation que use embeddings, un vector store y Gemma 3 para generación
 
 Explicación detallada:
-El fine-tuning es el proceso de "enseñarle" al modelo general sobre tu dominio específico. Esto implica:
+En lugar de ajustar (fine-tune) un modelo, el enfoque RAG se apoya en recuperar contexto relevante (pasajes, documentos, hechos del KG) y pasar ese contexto a un generador potente (Gemma 3). Las ventajas incluyen menor gravedad de infraestructura, más fácil mantenimiento y la capacidad de actualizar conocimiento sin volver a entrenar modelos.
 
-#### Proceso de fine-tuning
+#### Pasos para el diseño RAG
 
-    Preparar datos de entrenamiento específicos para red social profesional
-    Ajustar hiperparámetros (learning rate, batch size, epochs)
-    Entrenar incrementalmente sin perder conocimiento general
-    Validar resultados con datos de prueba
+- Preparar datos para ingestión (chunking, metadata, KG nodes) y pipeline de embeddings
+- Seleccionar un modelo de embeddings y una solución de vector DB apropiada para latencia/costo
+- Diseñar estrategias de recuperación (chunk size, overlap, metadata filters, hybrid KG queries)
+- Crear templates de prompt que incluyan contexto recuperado, instrucciones claras y esquema de citación
+- Validar con experimentos de retrieval+generation: medir recuperación (recall/precision), generación (fidelidad, citation accuracy) y latencia
 
 ## Fase 3: Funcionalidades Principales
 
