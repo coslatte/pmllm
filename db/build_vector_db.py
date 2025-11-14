@@ -1,0 +1,32 @@
+from neo4j_handler import stream_nodes
+from helper.text_builder import build_text
+from helper.embedder import embed
+from milvus_store import init_milvus
+
+
+def populate(labels):
+    collection = init_milvus()
+
+    for label in labels:
+        print(f"Procesando label: {label}")
+
+        ids = []
+        embeddings = []
+        texts = []
+        node_labels = []
+
+        for node in stream_nodes(label):
+            text = build_text(node)
+            vector = embed(text)
+
+            ids.append(node["id"])
+            embeddings.append(vector)
+            texts.append(text)
+            node_labels.append(label)
+
+        if ids:
+            print(f"Insertando {len(ids)} nodos de {label}...")
+            collection.insert([ids, embeddings, texts, node_labels])
+            collection.flush()
+
+    print("Vector DB construida correctamente.")

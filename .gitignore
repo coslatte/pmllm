@@ -41,7 +41,7 @@ coverage.xml
 
 # Virtualenv metadata
 .Python
-
+.python-version
 # Environment / secret files
 .env
 .env.*
