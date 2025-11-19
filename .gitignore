@@ -42,6 +42,7 @@ coverage.xml
 # Virtualenv metadata
 .Python
 .python-version
+
 # Environment / secret files
 .env
 .env.*
@@ -74,4 +75,34 @@ Thumbs.db
 
 # Misc
 celerybeat-schedule
-*.log
+
+# Neo4j
+neo4j/
+*.db/
+logs/
+import/
+plugins/
+conf/
+
+# Data files
+data/
+neo4j_headers/
+labeled/
+relationships/
+mbdump/
+out_csv/
+*.csv
+*.tsv
+*.tar
+*.tar.gz
+*.zip
+
+# Model files
+models/
+*.bin
+*.onnx
+*.pt
+*.pth
+
+# Lock files (keep uv.lock for reproducibility)
+# uv.lock

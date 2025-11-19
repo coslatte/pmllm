@@ -19,40 +19,43 @@ include: - "course recommendation" - "professional connection suggestions" - "te
 exclude: - "direct financial or medical advice"
 success_criteria: - ">=80% accuracy on curated Q&A test set" - "50% reduction in average information-search time" - "recommendations are personalized and explainable"
 
-milestones: - id: stage-1
-name: Define purpose & requirements
-tasks: - id: 1.1
-title: Identify problem and users
-output: "Problem statement, primary user personas, representative questions" - id: 1.2
-title: Set measurable goals
-output: "List of KPIs and acceptance criteria" - id: stage-2
-name: Model selection & RAG design
-tasks: - id: 2.1
-title: Select embeddings, vector DB, and generator
-criteria: ["embedding quality (semantic recall)", "vector-db latency & cost", "Qwen 3 API latency and cost", "deployment constraints"] - id: 2.2
-title: Design retrieval & prompt pipeline (RAG)
-steps: ["prepare document/KG ingestion and embedding pipeline", "define retrieval strategy (chunking, metadata filters, hybrid KG queries)", "design prompt templates and grounding format for Qwen 3", "validate with retrieval+generation experiments"] - id: stage-3
-name: Core features
-name: Core features
-tasks: - id: 3.1
-title: Content recommender
-contract:
-input: "user profile, engagement history, current query"
-output: "ranked content list + explanation" - id: 3.2
-title: Professional connector
-contract:
-input: "user profile, connection goals"
-output: "ranked candidate list + matching rationale" - id: 3.3
-title: Technical QA responder
-contract:
-input: "user question"
-output: "answer + cited sources + confidence" - id: stage-4
-name: API & evaluation
-tasks: - id: 4.1
-title: Build REST API
-endpoints: ["/recommend", "/connect", "/ask"] - id: 4.2
-title: Monitoring and evaluation pipeline
-metrics: ["accuracy", "latency", "user_satisfaction"]
+milestones:
+
+- id: stage-1
+  name: Data Preparation (Completed)
+  tasks:
+
+  - id: 1.1
+    title: Extract and Normalize Data
+    status: done
+    output: "CSV files extracted from tarballs (Ok)"
+  - id: 1.2
+    title: Generate Headers and Schemas
+    status: done
+    output: "Headers created for table joining and data construction (Ok)"
+
+- id: stage-2
+  name: Database Construction (Vector & Graph)
+  tasks:
+
+  - id: 2.1
+    title: Knowledge Graph Construction (Neo4j)
+    description: "Import structured data to handle precise relationship queries (e.g., Artist-Release connections)."
+    status: pending
+  - id: 2.2
+    title: Vector Database Construction
+    description: "Generate embeddings using 'text-embedding-qwen3-embedding-0.6b' and index in Milvus."
+    status: pending
+
+- id: stage-3
+  name: RAG Consolidation
+  tasks:
+  - id: 3.1
+    title: Build RAG Pipeline
+    description: "Integrate Vector Search (Milvus) and Graph Query (Neo4j) to provide context to Qwen 3."
+  - id: 3.2
+    title: API & Interface
+    description: "Expose the consolidated RAG via REST API."
 
 data_and_privacy:
 data_sources: ["university catalogs", "course descriptions", "user profiles", "interaction logs"]

@@ -45,32 +45,71 @@ def run_bulk_import(
     relationships_dir = relationships_dir.resolve()
 
     # Determine neo4j-admin command
+    import shutil
+    
+    has_local_admin = shutil.which("neo4j-admin") is not None
+    has_docker = shutil.which("docker") is not None
+
     if neo4j_bin_path:
         neo4j_admin = str(neo4j_bin_path / "neo4j-admin.bat")
-    else:
-        neo4j_admin = "neo4j-admin"
+        cmd = [neo4j_admin]
+    elif has_local_admin:
+        cmd = ["neo4j-admin"]
+    elif has_docker:
+        # Construct Docker command
+        # We need to mount the input directories and the output data directory
+        # Assuming the user wants to write to ./data/neo4j/data as per docker-compose.yml
+        
+        project_root = Path.cwd()
+        data_mount = project_root / "data" / "neo4j" / "data"
+        data_mount.mkdir(parents=True, exist_ok=True)
 
-    cmd = [
-        neo4j_admin,
+        print(f"Docker detected. Running import via container. Data will be written to: {data_mount}")
+        
+        cmd = [
+            "docker", "run", "--rm",
+            "-v", f"{headers_dir}:/headers",
+            "-v", f"{labeled_dir}:/labeled",
+            "-v", f"{relationships_dir}:/relationships",
+            "-v", f"{data_mount}:/data",
+            "neo4j:5.15.0",
+            "neo4j-admin",
+        ]
+    else:
+        raise Neo4jImportError("Neither 'neo4j-admin' nor 'docker' found in PATH.")
+
+    cmd.extend([
         "database",
         "import",
         "full",
         "--overwrite-destination=true",
         "--verbose",
-        f"--nodes={headers_dir / 'artist_header.csv'},{labeled_dir / 'labeled_artist.csv'}",
-        f"--nodes={headers_dir / 'recording_header.csv'},{labeled_dir / 'labeled_recording.csv'}",
-        f"--nodes={headers_dir / 'release_header.csv'},{labeled_dir / 'labeled_release.csv'}",
-        f"--nodes={headers_dir / 'work_header.csv'},{labeled_dir / 'labeled_work.csv'}",
-        f"--nodes={headers_dir / 'area_header.csv'},{labeled_dir / 'labeled_area.csv'}",
-        f"--relationships={headers_dir / 'artist_recording_rel_header.csv'},{relationships_dir / 'artist_recording_relationships.csv'}",
-        f"--relationships={headers_dir / 'artist_release_rel_header.csv'},{relationships_dir / 'artist_release_relationships.csv'}",
-        f"--delimiter={delimiter}",
-        f"--array-delimiter={array_delimiter}",
-        f"--skip-bad-relationships={'true' if skip_bad_relationships else 'false'}",
-        f"--multiline-fields={'true' if multiline_fields else 'false'}",
-        db_name,
-    ]
+    ])
 
+    # Helper to format paths for the command (local vs docker)
+    def get_path(local_path: Path, mount_point: str) -> str:
+        if has_local_admin or neo4j_bin_path:
+            return str(local_path)
+        return f"{mount_point}/{local_path.name}"
+
+    # Add nodes
+    cmd.append(f"--nodes={get_path(headers_dir / 'artist_header.csv', '/headers')},{get_path(labeled_dir / 'labeled_artist.csv', '/labeled')}")
+    cmd.append(f"--nodes={get_path(headers_dir / 'recording_header.csv', '/headers')},{get_path(labeled_dir / 'labeled_recording.csv', '/labeled')}")
+    cmd.append(f"--nodes={get_path(headers_dir / 'release_header.csv', '/headers')},{get_path(labeled_dir / 'labeled_release.csv', '/labeled')}")
+    cmd.append(f"--nodes={get_path(headers_dir / 'work_header.csv', '/headers')},{get_path(labeled_dir / 'labeled_work.csv', '/labeled')}")
+    cmd.append(f"--nodes={get_path(headers_dir / 'area_header.csv', '/headers')},{get_path(labeled_dir / 'labeled_area.csv', '/labeled')}")
+    
+    # Add relationships
+    cmd.append(f"--relationships={get_path(headers_dir / 'artist_recording_rel_header.csv', '/headers')},{get_path(relationships_dir / 'artist_recording_relationships.csv', '/relationships')}")
+    cmd.append(f"--relationships={get_path(headers_dir / 'artist_release_rel_header.csv', '/headers')},{get_path(relationships_dir / 'artist_release_relationships.csv', '/relationships')}")
+
+    cmd.append(f"--delimiter={delimiter}")
+    cmd.append(f"--array-delimiter={array_delimiter}")
+    cmd.append(f"--skip-bad-relationships={'true' if skip_bad_relationships else 'false'}")
+    cmd.append(f"--multiline-fields={'true' if multiline_fields else 'false'}")
+    cmd.append(db_name)
+
+    print(f"Running command: {' '.join(cmd)}")
     _run(cmd)
 
 
@@ -81,16 +120,50 @@ def run_verification_queries(
     port: int = 7687,
 ) -> None:
     """Run simple Cypher-shell verification queries."""
+    
+    import shutil
+    has_local_cypher = shutil.which("cypher-shell") is not None
+    has_docker = shutil.which("docker") is not None
 
-    base_cmd = [
-        "cypher-shell",
-        "-a",
-        f"bolt://{host}:{port}",
-        "-u",
-        user,
-        "-p",
-        password,
-    ]
+    if has_local_cypher:
+        base_cmd = [
+            "cypher-shell",
+            "-a",
+            f"bolt://{host}:{port}",
+            "-u",
+            user,
+            "-p",
+            password,
+        ]
+    elif has_docker:
+        # Use docker to run cypher-shell
+        # Note: host 'localhost' inside container refers to the container itself.
+        # If connecting to host machine or another container, we need care.
+        # If using docker-compose network, we can use service name if we were inside the network.
+        # But here we are running a transient container.
+        # 'host.docker.internal' works on Windows/Mac. On Linux it's trickier.
+        # For simplicity, let's assume the user is running this script from the host
+        # and the DB is exposed on localhost:7687.
+        # We can use --network="host" on Linux, or host.docker.internal on Windows.
+        
+        # Since we are on Windows (pwsh), host.docker.internal should work.
+        
+        target_host = "host.docker.internal" if host == "localhost" else host
+        
+        base_cmd = [
+            "docker", "run", "--rm",
+            "neo4j:5.15.0",
+            "cypher-shell",
+            "-a",
+            f"bolt://{target_host}:{port}",
+            "-u",
+            user,
+            "-p",
+            password,
+        ]
+    else:
+        print("Warning: cypher-shell not found and docker not available. Skipping verification.")
+        return
 
     _run(base_cmd + ["CALL db.schema.visualization();"], check=False)
     _run(
