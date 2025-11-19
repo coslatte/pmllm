@@ -1,4 +1,4 @@
-from neo4j_handler import stream_nodes
+from db.neo4j.neo4j_handler import stream_nodes
 from helper.text_builder import build_text
 from helper.embedder import embed
 from milvus_store import init_milvus

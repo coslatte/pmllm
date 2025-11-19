@@ -3,7 +3,7 @@ import argparse
 import sys
 from utils.file_manager.converter import Converter
 from utils.file_manager.csv_helper import run_pipeline
-from utils.neo4j_importer import run_bulk_import, run_verification_queries
+from db.neo4j.neo4j_importer import run_bulk_import, run_verification_queries
 
 
 class CLI:

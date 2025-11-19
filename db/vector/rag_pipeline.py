@@ -1,14 +1,20 @@
 from vector_query import search
+import os
 import requests
 
 
-def gemma_generate(prompt: str) -> str:
+QWEN_GENERATE_URL = os.getenv("QWEN_GENERATE_URL", "http://localhost:11434/api/generate")
+QWEN_GENERATE_MODEL = os.getenv("QWEN_GENERATE_MODEL", "qwen/qwen3-1.7b")
+
+
+def qwen_generate(prompt: str) -> str:
     response = requests.post(
-        "http://localhost:11434/api/generate",  # Port exposed by Ollama
-        json={"model": "gemma3:12b", "prompt": prompt, "stream": False},
+        QWEN_GENERATE_URL,
+        json={"model": QWEN_GENERATE_MODEL, "prompt": prompt, "stream": False},
     )
+    response.raise_for_status()
     data = response.json()
-    return data["response"]
+    return data.get("response", "")
 
 
 def build_context(query: str, top_k: int = 5):
@@ -38,4 +44,4 @@ def rag_answer(query: str, k: int = 5) -> str:
         return "No relevant context found in the vector database."
 
     prompt = build_prompt(query, context)
-    return gemma_generate(prompt)
+    return qwen_generate(prompt)

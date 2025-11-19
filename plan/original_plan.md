@@ -1,6 +1,6 @@
 # Grafos de Conocimiento
 
-> NOTE (project update, 2025-11-13): The project pivoted away from fine-tuning models and will adopt a Retrieval-Augmented Generation (RAG) approach using Gemma 3 as the generator. The repository and plans were updated to reflect embeddings + vector DB retrieval plus KG augmentation instead of on-prem fine-tuning.
+> NOTE (project update, 2025-11-13): The project pivoted away from fine-tuning models and will adopt a Retrieval-Augmented Generation (RAG) approach using Qwen 3 as the generator. The repository and plans were updated to reflect embeddings + vector DB retrieval plus KG augmentation instead of on-prem fine-tuning.
 
 Un Grafo de Conocimiento (Knowledge Graph) es una base de datos semántica que almacena información en forma de nodos (entidades) y aristas (relaciones), permitiendo representar conocimiento del mundo real de manera estructurada e interconectad. Las tareas de cada sem,ana deben ser hechas por los equipos son evaluativas.
 
@@ -49,10 +49,10 @@ RoBERTa: Mejor performance en algunas tareas, más pesado
 
 ### Paso 2.2: Diseño RAG y validación
 
-#### Objetivo: Construir un pipeline de Retrieval-Augmented Generation que use embeddings, un vector store y Gemma 3 para generación
+#### Objetivo: Construir un pipeline de Retrieval-Augmented Generation que use embeddings, un vector store y Qwen 3 para generación
 
 Explicación detallada:
-En lugar de ajustar (fine-tune) un modelo, el enfoque RAG se apoya en recuperar contexto relevante (pasajes, documentos, hechos del KG) y pasar ese contexto a un generador potente (Gemma 3). Las ventajas incluyen menor gravedad de infraestructura, más fácil mantenimiento y la capacidad de actualizar conocimiento sin volver a entrenar modelos.
+En lugar de ajustar (fine-tune) un modelo, el enfoque RAG se apoya en recuperar contexto relevante (pasajes, documentos, hechos del KG) y pasar ese contexto a un generador potente (Qwen 3). Las ventajas incluyen menor gravedad de infraestructura, más fácil mantenimiento y la capacidad de actualizar conocimiento sin volver a entrenar modelos.
 
 #### Pasos para el diseño RAG
 
