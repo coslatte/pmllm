@@ -60,12 +60,12 @@ privacy: "Anonymize PII, follow institutional data policies, keep provenance met
 quality_checks: - "schema validation" - "deduplication" - "source trust scoring"
 
 deliverables:
-code_files: - {name: red_social_llm.py, purpose: "main model orchestration and business logic"} - {name: pi_server.py, purpose: "API server exposing endpoints"} - {name: data_processor.py, purpose: "ETL & dataset preparation"} - {name: evaluator.py, purpose: "evaluation metrics & monitoring"} - {name: requirements.txt, purpose: "Python dependencies"}
-docs: - README.md - API_DOCUMENTATION.md - DATASET.md
+code_files: - {name: red_social_llm.py, purpose: "main model orchestration and business logic"} - {name: pi_server.py, purpose: "API server exposing endpoints"} - {name: data_processor.py, purpose: "ETL & dataset preparation"} - {name: evaluator.py, purpose: "evaluation metrics & monitoring"} - {name: requirements.txt, purpose: "Python dependencies"} - {name: cli.py, purpose: "tabular tools and Neo4j import orchestration"} - {name: utils/neo4j_importer.py, purpose: "helpers to run Neo4j bulk import and verification queries"}
+docs: - README.md - API_DOCUMENTATION.md - DATASET.md - docs/CHANGELOG.md
 
 agent_instructions:
 priority_order: ["milestones.stage-1", "milestones.stage-2", "milestones.stage-3", "milestones.stage-4"]
-behavior_guidelines: - "When unsure, return 'I don't know' and provide suggested data collection steps." - "Always include data provenance and confidence score in answers." - "Document all changes made by agents in \`docs/CHANGES.md\`."
+behavior_guidelines: - "When unsure, return 'I don't know' and provide suggested data collection steps." - "Always include data provenance and confidence score in answers." - "Document all changes made by agents in \`docs/CHANGELOG.md\`."
 task_format: - input_schema: "JSON object matching the task contract" - expected_output: "JSON with 'result', 'explanation', 'confidence', 'sources'"
 error_handling: - "If an external data source is missing, flag data dependency and fall back to conservative default."
 

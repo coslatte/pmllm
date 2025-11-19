@@ -46,7 +46,7 @@ Notes on the MusicBrainz fragment:
 
 ## Documentation
 
-- `docs/CHANGES.md` — Log of all changes made to the project, especially by agents.
+- `docs/CHANGELOG.md` — Log of all changes made to the project, especially by agents.
 - `plan/PLAN.md` — Structured project plan.
 - `plan/original_plan.md` — Original plan with annotations.
 
