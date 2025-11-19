@@ -1,6 +1,6 @@
 from sentence_transformers import SentenceTransformer
 
-# Modelo rápido y de buena calidad para RAG
+# Fast, high-quality sentence embedding model for RAG
 model = SentenceTransformer("all-mpnet-base-v2")  # 768 dims
 
 

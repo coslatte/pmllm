@@ -1,8 +1,19 @@
 from pymilvus import connections, FieldSchema, CollectionSchema, DataType, Collection
 
 
-def init_milvus(db_path="milvus.db", dim=768):
-    connections.connect("default", uri=db_path)
+def init_milvus(
+    alias: str = "default",
+    uri: str | None = None,
+    host: str = "127.0.0.1",
+    port: str | int = "19530",
+    dim: int = 768,
+):
+    """Connect to Milvus and return (or create) the musicbrainz collection."""
+
+    if uri:
+        connections.connect(alias, uri=uri)
+    else:
+        connections.connect(alias, host=host, port=str(port))
 
     fields = [
         FieldSchema(name="id", dtype=DataType.INT64, is_primary=True),
@@ -14,9 +25,9 @@ def init_milvus(db_path="milvus.db", dim=768):
     schema = CollectionSchema(fields)
 
     try:
-        collection = Collection("musicbrainz", schema)
+        collection = Collection("musicbrainz", schema, using=alias)
     except Exception:
-        collection = Collection("musicbrainz")
+        collection = Collection("musicbrainz", using=alias)
 
     # index
     index = {

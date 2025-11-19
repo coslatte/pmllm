@@ -4,7 +4,7 @@ import requests
 
 def gemma_generate(prompt: str) -> str:
     response = requests.post(
-        "http://localhost:11434/api/generate",  # Puerto para conectar con Ollama
+        "http://localhost:11434/api/generate",  # Port exposed by Ollama
         json={"model": "gemma3:12b", "prompt": prompt, "stream": False},
     )
     data = response.json()
@@ -20,14 +20,14 @@ def build_prompt(query: str, context: list[str]) -> str:
     ctx = "\n\n--- DOCUMENTO ---\n\n".join(context)
 
     return f"""
-Eres un asistente experto en música y bases de datos.
-Responde usando únicamente el siguiente contexto:
+You are an expert assistant for music datasets.
+Answer using only the following context:
 
 {ctx}
 
-Pregunta: {query}
+Question: {query}
 
-Respuesta:
+Answer:
 """
 
 
@@ -35,7 +35,7 @@ def rag_answer(query: str, k: int = 5) -> str:
     context = build_context(query, k)
 
     if not context:
-        return "No hay contexto relevante en la base vectorial."
+        return "No relevant context found in the vector database."
 
     prompt = build_prompt(query, context)
     return gemma_generate(prompt)

@@ -1,7 +1,7 @@
 def build_text(node: dict) -> str:
     """
-    Recibe un dict {"id", "labels", "props"}
-    y genera un texto para embedding basado en las propiedades.
+    Receive a dict {"id", "labels", "props"}
+    and render a text snippet for embedding using its properties.
     """
 
     labels = node["labels"]
@@ -9,13 +9,13 @@ def build_text(node: dict) -> str:
 
     txt = []
 
-    # etiqueta principal
+    # main label
     title = labels[0] if labels else "Entity"
     txt.append(f"{title}:")
 
-    # propiedades principales
+    # key properties
     for k, v in props.items():
-        # Evitar serializar listas como Python → pasarlas a CSV
+        # Avoid Python-style list serialization; use comma-separated text
         if isinstance(v, list):
             v = ", ".join(map(str, v))
         txt.append(f"{k}: {v}")

@@ -8,7 +8,7 @@ def populate(labels):
     collection = init_milvus()
 
     for label in labels:
-        print(f"Procesando label: {label}")
+        print(f"Processing label: {label}")
 
         ids = []
         embeddings = []
@@ -25,8 +25,8 @@ def populate(labels):
             node_labels.append(label)
 
         if ids:
-            print(f"Insertando {len(ids)} nodos de {label}...")
+            print(f"Inserting {len(ids)} nodes for {label}...")
             collection.insert([ids, embeddings, texts, node_labels])
             collection.flush()
 
-    print("Vector DB construida correctamente.")
+    print("Vector DB build completed successfully.")

@@ -32,7 +32,7 @@ FILES_TO_LABEL: Dict[str, str] = {
 
 
 def create_headers(headers_dir: Path, encoding: str = "utf-8") -> None:
-    """Crear todos los archivos de cabecera necesarios."""
+    """Create all required Neo4j header CSV files."""
 
     headers_dir = headers_dir.resolve()
     headers_dir.mkdir(parents=True, exist_ok=True)
@@ -52,7 +52,7 @@ def prepare_artist_credit_relationships(
     delimiter: str = "\t",
     encoding: str = "utf-8",
 ) -> None:
-    """Preparar archivos de relaciones desde artist_credit_name."""
+    """Prepare relationship CSV files from artist_credit_name."""
 
     mbdump_dir = mbdump_dir.resolve()
     relationships_dir = relationships_dir.resolve()
@@ -112,7 +112,7 @@ def prepare_artist_credit_relationships(
                         [artist_id, release_id, position, name, "RELEASED"]
                     )
 
-    print(f"✅ Relaciones generadas en {relationships_dir}")
+    print(f"✅ Relationships generated in {relationships_dir}")
 
 
 def add_labels_to_data(
@@ -121,7 +121,7 @@ def add_labels_to_data(
     delimiter: str = "\t",
     encoding: str = "utf-8",
 ) -> None:
-    """Añadir etiquetas a los archivos de datos existentes."""
+    """Add label columns to existing MusicBrainz data files."""
 
     mbdump_dir = mbdump_dir.resolve()
     labeled_dir = labeled_dir.resolve()
@@ -143,7 +143,7 @@ def add_labels_to_data(
                     row.append(label)
                     writer.writerow(row)
 
-        print(f"✅ Etiqueta añadida a {input_file} -> {output_file}")
+        print(f"✅ Label added to {input_file} -> {output_file}")
 
 
 def run_pipeline(
@@ -157,7 +157,7 @@ def run_pipeline(
     skip_labels: bool = False,
     skip_relationships: bool = False,
 ) -> None:
-    """Ejecutar la preparación completa de datos."""
+    """Run the full MusicBrainz-to-Neo4j CSV preparation pipeline."""
 
     if not skip_headers:
         create_headers(headers_dir=headers_dir, encoding=encoding)
@@ -182,56 +182,56 @@ def run_pipeline(
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
         prog="pmllm-csv-helper",
-        description="Preparar datos de MusicBrainz para Neo4j",
+        description="Prepare MusicBrainz data for Neo4j",
     )
     parser.add_argument(
         "--mbdump",
         type=Path,
         default=Path("mbdump"),
-        help="Directorio que contiene los archivos fuente de MusicBrainz",
+        help="Directory containing the original MusicBrainz source files",
     )
     parser.add_argument(
         "--headers-dir",
         type=Path,
         default=Path("neo4j_headers"),
-        help="Directorio de salida para las cabeceras CSV",
+        help="Output directory for Neo4j header CSV files",
     )
     parser.add_argument(
         "--labeled-dir",
         type=Path,
         default=Path("labeled"),
-        help="Directorio de salida para los archivos con etiquetas",
+        help="Output directory for labeled data CSV files",
     )
     parser.add_argument(
         "--relationships-dir",
         type=Path,
         default=Path("relationships"),
-        help="Directorio de salida para los archivos de relaciones",
+        help="Output directory for relationship CSV files",
     )
     parser.add_argument(
         "--delimiter",
         default="\t",
-        help="Delimitador de los archivos de entrada (por defecto tabulación)",
+        help="Delimiter used in input files (default: tab)",
     )
     parser.add_argument(
         "--encoding",
         default="utf-8",
-        help="Codificación de lectura/escritura (por defecto utf-8)",
+        help="Encoding used for reading/writing (default: utf-8)",
     )
     parser.add_argument(
         "--skip-headers",
         action="store_true",
-        help="Omitir la generación de archivos de cabecera",
+        help="Skip header CSV generation",
     )
     parser.add_argument(
         "--skip-labels",
         action="store_true",
-        help="Omitir la creación de archivos con etiquetas",
+        help="Skip labeled data generation",
     )
     parser.add_argument(
         "--skip-relationships",
         action="store_true",
-        help="Omitir la generación de archivos de relaciones",
+        help="Skip relationship CSV generation",
     )
     return parser.parse_args(argv)
 
@@ -239,7 +239,7 @@ def parse_args(argv=None):
 def main(argv=None) -> None:
     args = parse_args(argv)
 
-    print("🎵 Preparando datos de MusicBrainz para Neo4j...")
+    print("Preparing MusicBrainz data for Neo4j...")
 
     run_pipeline(
         mbdump_dir=args.mbdump,
@@ -253,15 +253,15 @@ def main(argv=None) -> None:
         skip_relationships=args.skip_relationships,
     )
 
-    print("🎉 Preparación completada!")
-    print("\n📁 Archivos generados:")
+    print("Preparation completed!")
+    print("\nGenerated files:")
     if not args.skip_headers:
-        print(f"  - {args.headers_dir.resolve()} (directorio con cabeceras)")
+        print(f"  - {args.headers_dir.resolve()} (header directory)")
     if not args.skip_labels:
-        print(f"  - {args.labeled_dir.resolve()} (datos con etiquetas)")
+        print(f"  - {args.labeled_dir.resolve()} (labeled data)")
     if not args.skip_relationships:
         print(
-            f"  - {args.relationships_dir.resolve()} (archivos de relaciones)"
+            f"  - {args.relationships_dir.resolve()} (relationship files)"
         )
 
 

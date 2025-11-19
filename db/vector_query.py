@@ -13,18 +13,21 @@ def search(query, limit=5, return_raw=False):
         output_fields=["text", "label"],
     )
 
-    if return_raw:
-        return [
-            {
-                "text": hit.entity.get("text"),
-                "label": hit.entity.get("label"),
-                "score": hit.distance,
-            }
-            for hit in results[0]
-        ]
+    hits = [
+        {
+            "text": hit.entity.get("text"),
+            "label": hit.entity.get("label"),
+            "score": hit.distance,
+        }
+        for hit in results[0]
+    ]
 
-    # Modo impresión previa (como ya lo tienes)
-    for hit in results[0]:
-        print(f"[score={hit.distance:.4f}] ({hit.entity.get('label')})")
-        print(hit.entity.get("text"))
+    if return_raw:
+        return hits
+
+    for hit in hits:
+        print(f"[score={hit['score']:.4f}] ({hit['label']})")
+        print(hit["text"])
         print("-" * 40)
+
+    return hits
