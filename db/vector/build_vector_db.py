@@ -3,6 +3,10 @@ from .helper.text_builder import build_text
 from .helper.embedder import embed
 from .milvus_store import init_milvus
 
+# Milvus VARCHAR field limit for text storage
+MAX_TEXT_LENGTH = 2000
+TRUNCATION_SUFFIX = "..."
+
 
 def populate(labels):
     """Populate the Milvus vector database with nodes from Neo4j.
@@ -22,9 +26,9 @@ def populate(labels):
 
         for node in stream_nodes(label):
             text = build_text(node)
-            # Truncate text to fit VARCHAR(2000) limit
-            if len(text) > 2000:
-                text = text[:1997] + "..."
+            # Truncate text to fit VARCHAR max_length limit
+            if len(text) > MAX_TEXT_LENGTH:
+                text = text[:MAX_TEXT_LENGTH - len(TRUNCATION_SUFFIX)] + TRUNCATION_SUFFIX
             
             try:
                 vector = embed(text)

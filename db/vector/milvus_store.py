@@ -1,12 +1,12 @@
 from pymilvus import connections, FieldSchema, CollectionSchema, DataType, Collection
-from typing import Optional
+from typing import Optional, Union
 
 
 def init_milvus(
     alias: str = "default",
     uri: Optional[str] = None,
     host: str = "127.0.0.1",
-    port: str | int = "19530",
+    port: Union[str, int] = "19530",
     dim: int = 768,
 ):
     """Connect to Milvus and return (or create) the musicbrainz collection."""

@@ -1,5 +1,6 @@
 import os
 import requests
+from typing import List
 
 from .vector_query import search
 
@@ -55,7 +56,7 @@ def build_context(query: str, top_k: int = 5):
     return [r["text"] for r in results]
 
 
-def build_prompt(query: str, context: list[str]) -> str:
+def build_prompt(query: str, context: List[str]) -> str:
     """Build a RAG prompt with context and query.
     
     Args:
