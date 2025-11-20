@@ -68,6 +68,7 @@ class CLI:
             multiline_fields=args.multiline_fields,
             neo4j_bin_path=neo4j_bin_path,
             java_home=java_home,
+            legacy_import=args.legacy_import,
         )
         print("Neo4j bulk import completed.")
 
@@ -247,6 +248,11 @@ class CLI:
             "--java-home",
             default=None,
             help="Path to Java installation (JAVA_HOME) to use for the import process",
+        )
+        import_parser.add_argument(
+            "--legacy-import",
+            action="store_true",
+            help="Use legacy neo4j-admin import instead of modern database import (for older Neo4j versions)",
         )
         import_parser.set_defaults(handler=CLI._handle_import_neo4j)
 

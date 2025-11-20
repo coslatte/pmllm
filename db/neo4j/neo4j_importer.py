@@ -41,6 +41,7 @@ def run_bulk_import(
     multiline_fields: bool = True,
     neo4j_bin_path: Optional[Path] = None,
     java_home: Optional[Path] = None,
+    legacy_import: bool = False,
 ) -> None:
     """Run neo4j-admin bulk import using generated header + data CSVs."""
 
@@ -97,15 +98,27 @@ def run_bulk_import(
     else:
         raise Neo4jImportError("Neither 'neo4j-admin' nor 'docker' found in PATH.")
 
-    cmd.extend(
-        [
-            "database",
-            "import",
-            "full",
-            "--overwrite-destination=true",
-            "--verbose",
-        ]
-    )
+    if legacy_import:
+        cmd.extend(["import"])
+        # For legacy import, --into specifies the database directory
+        # Assuming db_name is the directory name under data/databases
+        if has_docker:
+            cmd.append(f"--into=/data/{db_name}")
+        else:
+            # For local, assume the data path is relative or absolute
+            # This might need adjustment based on Neo4j setup
+            data_dir = Path.home() / ".Neo4jDesktop2" / "Data" / "dbmss" / "dbms-11f3fb33-1c97-4d64-bb2c-ccd9cc578308" / "data" / "databases" / db_name
+            cmd.append(f"--into={data_dir}")
+    else:
+        cmd.extend(
+            [
+                "database",
+                "import",
+                "full",
+                "--overwrite-destination=true",
+                "--verbose",
+            ]
+        )
 
     # Helper to format paths for the command (local vs docker)
     def get_path(local_path: Path, mount_point: str) -> str:
@@ -142,11 +155,17 @@ def run_bulk_import(
     val_delimiter = "TAB" if delimiter == "\t" else delimiter
     cmd.append(f"--delimiter={val_delimiter}")
     cmd.append(f"--array-delimiter={array_delimiter}")
-    cmd.append(
-        f"--skip-bad-relationships={'true' if skip_bad_relationships else 'false'}"
-    )
-    cmd.append(f"--multiline-fields={'true' if multiline_fields else 'false'}")
-    cmd.append(db_name)
+    if not legacy_import:
+        cmd.append(
+            f"--skip-bad-relationships={'true' if skip_bad_relationships else 'false'}"
+        )
+        cmd.append(f"--multiline-fields={'true' if multiline_fields else 'false'}")
+        cmd.append(db_name)
+    else:
+        # Legacy import has different flags
+        cmd.append(f"--bad-tolerance=1000")
+        cmd.append(f"--multiline-fields={'true' if multiline_fields else 'false'}")
+        # --into already added above
 
     print(f"Running command: {' '.join(cmd)}")
     result = _run(cmd, env=env)
