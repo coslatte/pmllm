@@ -52,8 +52,13 @@ def populate(labels):
                 embeddings.append(vector)
                 texts.append(text)
                 node_labels.append(label)
-            except Exception as e:
+            except (RuntimeError, ValueError) as e:
+                # Model loading or embedding generation errors
                 print(f"Warning: Failed to embed node {node['id']}: {e}")
+                continue
+            except Exception as e:
+                # Unexpected errors - log and continue but notify
+                print(f"Error: Unexpected error embedding node {node['id']}: {type(e).__name__}: {e}")
                 continue
 
         if ids:

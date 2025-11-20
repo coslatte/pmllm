@@ -1,20 +1,31 @@
 import os
 from neo4j import GraphDatabase
 from typing import Generator, Dict, Any, List, Optional
+import warnings
 
 
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 
+# For development/testing only - set NEO4J_ALLOW_INSECURE=true to use default password
+_allow_insecure = os.getenv("NEO4J_ALLOW_INSECURE", "").lower() == "true"
+
 if not NEO4J_PASSWORD:
-    import warnings
-    warnings.warn(
-        "NEO4J_PASSWORD environment variable not set. "
-        "Please set it to avoid connection failures.",
-        UserWarning
-    )
-    NEO4J_PASSWORD = "neo4j"  # Fallback for development only
+    if _allow_insecure:
+        warnings.warn(
+            "Using default Neo4j password 'neo4j' because NEO4J_ALLOW_INSECURE=true. "
+            "This is ONLY for development/testing. Never use in production!",
+            UserWarning,
+            stacklevel=2
+        )
+        NEO4J_PASSWORD = "neo4j"
+    else:
+        raise ValueError(
+            "NEO4J_PASSWORD environment variable must be set. "
+            "For development/testing only, you can set NEO4J_ALLOW_INSECURE=true "
+            "to use the default password (NOT recommended for production)."
+        )
 
 driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
 
