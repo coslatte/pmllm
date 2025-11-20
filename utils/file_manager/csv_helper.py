@@ -6,7 +6,10 @@ from pathlib import Path
 from typing import Dict, Optional, Set
 
 # Increase CSV field size limit to handle large fields in MusicBrainz data
-csv.field_size_limit(sys.maxsize)
+try:
+    csv.field_size_limit(sys.maxsize)
+except OverflowError:
+    csv.field_size_limit(2_147_483_647)
 
 
 NODE_HEADERS: Dict[str, str] = {

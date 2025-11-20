@@ -1,12 +1,20 @@
 import os
 from neo4j import GraphDatabase
-from typing import Generator, Dict, Any, List
-
+from typing import Generator, Dict, Any, List, Optional
 
 
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "neo4j")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
+
+if not NEO4J_PASSWORD:
+    import warnings
+    warnings.warn(
+        "NEO4J_PASSWORD environment variable not set. "
+        "Please set it to avoid connection failures.",
+        UserWarning
+    )
+    NEO4J_PASSWORD = "neo4j"  # Fallback for development only
 
 driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
 
@@ -25,18 +33,28 @@ def list_labels_and_reltypes():
 
 
 def node_to_dict(record) -> Dict[str, Any]:
-    """Normalize a Neo4j node/record into a dict with id, labels, and props."""
+    """Normalize a Neo4j node/record into a dict with id, labels, and props.
+    
+    Args:
+        record: A Neo4j node or record object
+        
+    Returns:
+        Dictionary with 'id', 'labels', and 'props' keys
+    """
     node = record  # expects a neo4j.Node-like mapping
     # When receiving a Record with key 'n', access row['n']
     try:
         nid = node.id
         labels = list(node.labels)
         props = dict(node)
-    except Exception:
+    except (AttributeError, TypeError):
         # If the record is a Row containing key 'n'
-        nid = node["n"].id
-        labels = list(node["n"].labels)
-        props = dict(node["n"])
+        try:
+            nid = node["n"].id
+            labels = list(node["n"].labels)
+            props = dict(node["n"])
+        except (KeyError, AttributeError, TypeError) as e:
+            raise ValueError(f"Invalid node/record format: {e}") from e
     return {"id": nid, "labels": labels, "props": props}
 
 

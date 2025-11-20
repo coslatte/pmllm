@@ -29,12 +29,16 @@ def qwen_generate(prompt: str) -> str:
     }
     
     try:
-        response = requests.post(QWEN_GENERATE_URL, json=payload)
+        response = requests.post(QWEN_GENERATE_URL, json=payload, timeout=30)
         response.raise_for_status()
         data = response.json()
         return data["choices"][0]["message"]["content"]
+    except requests.exceptions.RequestException as e:
+        return f"Error connecting to LLM service: {e}"
+    except (KeyError, IndexError) as e:
+        return f"Error parsing LLM response: {e}"
     except Exception as e:
-        return f"Error generating response: {e}"
+        return f"Unexpected error generating response: {e}"
 
 
 def build_context(query: str, top_k: int = 5):

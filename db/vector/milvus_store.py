@@ -30,12 +30,19 @@ def init_milvus(
     except Exception:
         collection = Collection("musicbrainz", using=alias)
 
-    # index
+    # Create index if it doesn't exist
     index = {
         "index_type": "HNSW",
         "metric_type": "COSINE",
         "params": {"M": 16, "efConstruction": 200},
     }
-    collection.create_index("embedding", index)
+    
+    # Check if index already exists before creating
+    try:
+        if not collection.has_index():
+            collection.create_index("embedding", index)
+    except Exception as e:
+        # Index might already exist, which is fine
+        pass
 
     return collection

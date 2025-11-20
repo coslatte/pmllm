@@ -22,16 +22,28 @@ def populate(labels):
 
         for node in stream_nodes(label):
             text = build_text(node)
-            vector = embed(text)
-
-            ids.append(node["id"])
-            embeddings.append(vector)
-            texts.append(text)
-            node_labels.append(label)
+            # Truncate text to fit VARCHAR(2000) limit
+            if len(text) > 2000:
+                text = text[:1997] + "..."
+            
+            try:
+                vector = embed(text)
+                
+                ids.append(node["id"])
+                embeddings.append(vector)
+                texts.append(text)
+                node_labels.append(label)
+            except Exception as e:
+                print(f"Warning: Failed to embed node {node['id']}: {e}")
+                continue
 
         if ids:
             print(f"Inserting {len(ids)} nodes for {label}...")
-            collection.insert([ids, embeddings, texts, node_labels])
-            collection.flush()
+            try:
+                collection.insert([ids, embeddings, texts, node_labels])
+                collection.flush()
+                print(f"Successfully inserted {len(ids)} nodes for {label}")
+            except Exception as e:
+                print(f"Error inserting nodes for {label}: {e}")
 
-    print("Vector DB build completed successfully.")
+    print("Vector DB build completed.")
