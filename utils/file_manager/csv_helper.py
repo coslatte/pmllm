@@ -57,7 +57,7 @@ def create_headers(headers_dir: Path, delimiter: str = "\t", encoding: str = "ut
         header_content = header.replace(",", delimiter)
         (headers_dir / filename).write_text(header_content + "\n", encoding=encoding)
 
-    print(f"✅ Archivos de cabecera creados en {headers_dir}")
+    print(f"✅ Header files created in {headers_dir}")
 
 
 def prepare_artist_credit_relationships(
@@ -81,7 +81,7 @@ def prepare_artist_credit_relationships(
 
     for path in (recording_path, release_path, artist_credit_name_path):
         if not path.exists():
-            raise FileNotFoundError(f"No se encontró el archivo requerido: {path}")
+            raise FileNotFoundError(f"Required file not found: {path}")
 
     artist_credit_to_recording: Dict[str, str] = {}
     artist_credit_to_release: Dict[str, str] = {}
@@ -167,7 +167,7 @@ def add_labels_to_data(
     for filename, label in FILES_TO_LABEL.items():
         input_file = mbdump_dir / filename
         if not input_file.exists():
-            raise FileNotFoundError(f"No se encontró el archivo requerido: {input_file}")
+            raise FileNotFoundError(f"Required file not found: {input_file}")
 
         output_file = labeled_dir / f"labeled_{input_file.name}.csv"
 

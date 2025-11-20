@@ -1,9 +1,10 @@
 from pymilvus import connections, FieldSchema, CollectionSchema, DataType, Collection
+from typing import Optional
 
 
 def init_milvus(
     alias: str = "default",
-    uri: str | None = None,
+    uri: Optional[str] = None,
     host: str = "127.0.0.1",
     port: str | int = "19530",
     dim: int = 768,

@@ -12,6 +12,7 @@ driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
 
 
 def close():
+    """Close the Neo4j driver connection."""
     driver.close()
 
 

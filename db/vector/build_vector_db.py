@@ -1,10 +1,15 @@
 from db.neo4j.neo4j_handler import stream_nodes
-from helper.text_builder import build_text
-from helper.embedder import embed
-from milvus_store import init_milvus
+from .helper.text_builder import build_text
+from .helper.embedder import embed
+from .milvus_store import init_milvus
 
 
 def populate(labels):
+    """Populate the Milvus vector database with nodes from Neo4j.
+    
+    Args:
+        labels: List of Neo4j node labels to process and embed
+    """
     collection = init_milvus()
 
     for label in labels:

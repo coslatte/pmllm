@@ -105,9 +105,14 @@ def run_bulk_import(
         if has_docker:
             cmd.append(f"--into=/data/{db_name}")
         else:
-            # For local, assume the data path is relative or absolute
-            # This might need adjustment based on Neo4j setup
-            data_dir = Path.home() / ".Neo4jDesktop2" / "Data" / "dbmss" / "dbms-11f3fb33-1c97-4d64-bb2c-ccd9cc578308" / "data" / "databases" / db_name
+            # For local, use environment variable or current directory
+            neo4j_data_dir = os.getenv("NEO4J_DATA_DIR")
+            if neo4j_data_dir:
+                data_dir = Path(neo4j_data_dir) / "databases" / db_name
+            else:
+                # Default to local data directory
+                data_dir = Path.cwd() / "data" / "neo4j" / "data" / "databases" / db_name
+            data_dir.parent.mkdir(parents=True, exist_ok=True)
             cmd.append(f"--into={data_dir}")
     else:
         cmd.extend(
