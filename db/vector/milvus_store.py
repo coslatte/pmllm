@@ -42,7 +42,9 @@ def init_milvus(
         if not collection.has_index():
             collection.create_index("embedding", index)
     except Exception as e:
-        # Index might already exist, which is fine
-        pass
+        # Index might already exist or there could be a connection issue
+        # Log the exception in production environments
+        import sys
+        print(f"Warning: Could not create index: {e}", file=sys.stderr)
 
     return collection
