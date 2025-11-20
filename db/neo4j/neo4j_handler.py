@@ -1,17 +1,37 @@
 import os
 from neo4j import GraphDatabase
-from typing import Generator, Dict, Any, List
-
+from typing import Generator, Dict, Any, List, Optional
+import warnings
 
 
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "neo4j")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
+
+# For development/testing only - set NEO4J_ALLOW_INSECURE=true to use default password
+_allow_insecure = os.getenv("NEO4J_ALLOW_INSECURE", "").lower() == "true"
+
+if not NEO4J_PASSWORD:
+    if _allow_insecure:
+        warnings.warn(
+            "Using default Neo4j password 'neo4j' because NEO4J_ALLOW_INSECURE=true. "
+            "This is ONLY for development/testing. Never use in production!",
+            UserWarning,
+            stacklevel=2
+        )
+        NEO4J_PASSWORD = "neo4j"
+    else:
+        raise ValueError(
+            "NEO4J_PASSWORD environment variable must be set. "
+            "For development/testing only, you can set NEO4J_ALLOW_INSECURE=true "
+            "to use the default password (NOT recommended for production)."
+        )
 
 driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
 
 
 def close():
+    """Close the Neo4j driver connection."""
     driver.close()
 
 
@@ -24,18 +44,28 @@ def list_labels_and_reltypes():
 
 
 def node_to_dict(record) -> Dict[str, Any]:
-    """Normalize a Neo4j node/record into a dict with id, labels, and props."""
+    """Normalize a Neo4j node/record into a dict with id, labels, and props.
+    
+    Args:
+        record: A Neo4j node or record object
+        
+    Returns:
+        Dictionary with 'id', 'labels', and 'props' keys
+    """
     node = record  # expects a neo4j.Node-like mapping
     # When receiving a Record with key 'n', access row['n']
     try:
         nid = node.id
         labels = list(node.labels)
         props = dict(node)
-    except Exception:
+    except (AttributeError, TypeError):
         # If the record is a Row containing key 'n'
-        nid = node["n"].id
-        labels = list(node["n"].labels)
-        props = dict(node["n"])
+        try:
+            nid = node["n"].id
+            labels = list(node["n"].labels)
+            props = dict(node["n"])
+        except (KeyError, AttributeError, TypeError) as e:
+            raise ValueError(f"Invalid node/record format: {e}") from e
     return {"id": nid, "labels": labels, "props": props}
 
 

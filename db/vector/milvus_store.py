@@ -1,11 +1,12 @@
 from pymilvus import connections, FieldSchema, CollectionSchema, DataType, Collection
+from typing import Optional, Union
 
 
 def init_milvus(
     alias: str = "default",
-    uri: str | None = None,
+    uri: Optional[str] = None,
     host: str = "127.0.0.1",
-    port: str | int = "19530",
+    port: Union[str, int] = "19530",
     dim: int = 768,
 ):
     """Connect to Milvus and return (or create) the musicbrainz collection."""
@@ -29,12 +30,21 @@ def init_milvus(
     except Exception:
         collection = Collection("musicbrainz", using=alias)
 
-    # index
+    # Create index if it doesn't exist
     index = {
         "index_type": "HNSW",
         "metric_type": "COSINE",
         "params": {"M": 16, "efConstruction": 200},
     }
-    collection.create_index("embedding", index)
+    
+    # Check if index already exists before creating
+    try:
+        if not collection.has_index():
+            collection.create_index("embedding", index)
+    except Exception as e:
+        # Index might already exist or there could be a connection issue
+        # Log the exception in production environments
+        import sys
+        print(f"Warning: Could not create index: {e}", file=sys.stderr)
 
     return collection
