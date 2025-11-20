@@ -3,18 +3,29 @@ import os
 import requests
 
 
-QWEN_GENERATE_URL = os.getenv("QWEN_GENERATE_URL", "http://localhost:11434/api/generate")
-QWEN_GENERATE_MODEL = os.getenv("QWEN_GENERATE_MODEL", "qwen/qwen3-1.7b")
+QWEN_GENERATE_URL = os.getenv("QWEN_GENERATE_URL", "http://localhost:1234/v1/chat/completions")
+QWEN_GENERATE_MODEL = os.getenv("QWEN_GENERATE_MODEL", "qwen-1.7b")  # Name used in LM Studio
 
 
 def qwen_generate(prompt: str) -> str:
-    response = requests.post(
-        QWEN_GENERATE_URL,
-        json={"model": QWEN_GENERATE_MODEL, "prompt": prompt, "stream": False},
-    )
-    response.raise_for_status()
-    data = response.json()
-    return data.get("response", "")
+    # LM Studio uses OpenAI-compatible API structure
+    payload = {
+        "model": QWEN_GENERATE_MODEL,
+        "messages": [
+            {"role": "system", "content": "You are a helpful music expert assistant."},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.7,
+        "stream": False
+    }
+    
+    try:
+        response = requests.post(QWEN_GENERATE_URL, json=payload)
+        response.raise_for_status()
+        data = response.json()
+        return data["choices"][0]["message"]["content"]
+    except Exception as e:
+        return f"Error generating response: {e}"
 
 
 def build_context(query: str, top_k: int = 5):

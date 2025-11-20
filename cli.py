@@ -24,6 +24,8 @@ class CLI:
     @staticmethod
     def _handle_prepare(args: argparse.Namespace) -> None:
         print("Preparing MusicBrainz data for Neo4j...")
+        sample_percent = max(0.0, min(args.sample_percent, 100.0))
+        sample_fraction = sample_percent / 100.0
         run_pipeline(
             mbdump_dir=Path(args.mbdump),
             headers_dir=Path(args.headers_dir),
@@ -34,6 +36,8 @@ class CLI:
             skip_headers=args.skip_headers,
             skip_labels=args.skip_labels,
             skip_relationships=args.skip_relationships,
+            sample_fraction=sample_fraction,
+            sample_seed=args.sample_seed,
         )
         print("Preparation completed!")
         print("\nGenerated files:")
@@ -50,6 +54,7 @@ class CLI:
         labeled_dir = Path(args.labeled_dir)
         relationships_dir = Path(args.relationships_dir)
         neo4j_bin_path = Path(args.neo4j_bin_path) if args.neo4j_bin_path else None
+        java_home = Path(args.java_home) if args.java_home else None
 
         print("Running Neo4j bulk import...")
         run_bulk_import(
@@ -62,6 +67,7 @@ class CLI:
             skip_bad_relationships=not args.allow_bad_relationships,
             multiline_fields=args.multiline_fields,
             neo4j_bin_path=neo4j_bin_path,
+            java_home=java_home,
         )
         print("Neo4j bulk import completed.")
 
@@ -121,6 +127,18 @@ class CLI:
             "--relationships-dir",
             default="relationships",
             help="Output directory for relationship files",
+        )
+        prepare_parser.add_argument(
+            "--sample-percent",
+            type=float,
+            default=100.0,
+            help="Percent of rows to keep when generating CSVs (default: 100%%)",
+        )
+        prepare_parser.add_argument(
+            "--sample-seed",
+            type=int,
+            default=42,
+            help="Random seed controlling which rows are kept during sampling",
         )
         prepare_parser.add_argument(
             "--delimiter",
@@ -225,6 +243,11 @@ class CLI:
             default=None,
             help="Path to Neo4j bin directory (e.g., for Neo4j Desktop installations)",
         )
+        import_parser.add_argument(
+            "--java-home",
+            default=None,
+            help="Path to Java installation (JAVA_HOME) to use for the import process",
+        )
         import_parser.set_defaults(handler=CLI._handle_import_neo4j)
 
         return parser
@@ -237,8 +260,16 @@ class CLI:
         raw_args = sys.argv[1:] if argv is None else list(argv)
 
         # Backwards compatibility: if command omitted, assume "convert".
-        if raw_args and raw_args[0] not in {"convert", "prepare-neo4j", "import-neo4j"}:
-            raw_args.insert(0, "convert")
+        # But only if there are args and the first one isn't a known command.
+        # If no args, print help.
+        if not raw_args:
+            parser.print_help()
+            return
+
+        if raw_args[0] not in {"convert", "prepare-neo4j", "import-neo4j", "-h", "--help"}:
+             # If the user provided paths but no command, assume 'convert' for legacy reasons
+             # But be careful not to swallow errors if they just typed a typo command
+             raw_args.insert(0, "convert")
 
         args = parser.parse_args(raw_args)
 
@@ -247,3 +278,7 @@ class CLI:
             return
 
         args.handler(args)
+
+
+if __name__ == "__main__":
+    CLI.run()
