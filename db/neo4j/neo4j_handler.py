@@ -21,22 +21,35 @@ if not NEO4J_PASSWORD:
         )
         NEO4J_PASSWORD = "neo4j"
     else:
-        raise ValueError(
-            "NEO4J_PASSWORD environment variable must be set. "
-            "For development/testing only, you can set NEO4J_ALLOW_INSECURE=true "
-            "to use the default password (NOT recommended for production)."
-        )
+        # Don't raise error at import time, only when trying to connect
+        NEO4J_PASSWORD = None
 
-driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+_driver = None
 
+def _get_driver():
+    """Get or create the Neo4j driver."""
+    global _driver
+    if _driver is None:
+        if not NEO4J_PASSWORD:
+            raise ValueError(
+                "NEO4J_PASSWORD environment variable must be set. "
+                "For development/testing only, you can set NEO4J_ALLOW_INSECURE=true "
+                "to use the default password (NOT recommended for production)."
+            )
+        _driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+    return _driver
 
 def close():
     """Close the Neo4j driver connection."""
-    driver.close()
+    global _driver
+    if _driver:
+        _driver.close()
+        _driver = None
 
 
 def list_labels_and_reltypes():
     """Return the labels and relationship types present in the database."""
+    driver = _get_driver()
     with driver.session() as session:
         labels = session.run("CALL db.labels()").value()
         reltypes = session.run("CALL db.relationshipTypes()").value()
@@ -77,6 +90,7 @@ def stream_nodes(
     Works for small/medium datasets; for very large datasets consider
     apoc.periodic.iterate running on the Neo4j server.
     """
+    driver = _get_driver()
     offset = 0
     with driver.session() as session:
         while True:

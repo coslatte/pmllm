@@ -73,7 +73,7 @@ Notes on the MusicBrainz fragment:
 
 ### Implemented Components
 
-- `cli.py` / `main.py` — Command-line interface for dataset conversion and Neo4j import
+- `cli.py` / `main.py` — Command-line interface for dataset conversion, Neo4j import, and full build automation
 - `db/vector/` — Vector database integration with Milvus
   - `milvus_store.py` — Milvus connection and collection management
   - `vector_query.py` — Vector similarity search
@@ -82,7 +82,7 @@ Notes on the MusicBrainz fragment:
 - `db/neo4j/` — Neo4j graph database integration
   - `neo4j_handler.py` — Query and retrieve nodes from Neo4j
   - `neo4j_importer.py` — Bulk import data into Neo4j
-- `utils/file_manager/` — Data processing utilities
+- `utils/files_manager/` — Data processing utilities
   - `converter.py` — TSV to CSV conversion
   - `reader.py` — File reading and validation
   - `csv_helper.py` — MusicBrainz data preparation for Neo4j
@@ -127,18 +127,21 @@ Note: the project now uses a RAG approach with Qwen 3. Do not add or expect fine
 ### Setup Instructions
 
 1. **Clone the repository:**
+
    ```bash
    git clone https://github.com/coslatte/pmllm.git
    cd pmllm
    ```
 
 2. **Create and activate a Python virtual environment:**
+
    ```bash
    python -m venv .venv
    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
    ```
 
 3. **Install Python dependencies:**
+
    ```bash
    pip install -r requirements.txt
    # Or using the project file:
@@ -147,30 +150,33 @@ Note: the project now uses a RAG approach with Qwen 3. Do not add or expect fine
 
 4. **Set up environment variables:**
    Create a `.env` file or export these variables:
+
    ```bash
    # Neo4j connection
    export NEO4J_URI="bolt://localhost:7687"
    export NEO4J_USER="neo4j"
    export NEO4J_PASSWORD="your_password"
-   
+
    # Milvus connection (optional, defaults shown)
    export MILVUS_HOST="127.0.0.1"
    export MILVUS_PORT="19530"
-   
+
    # LLM API endpoint (for Qwen via LM Studio)
    export QWEN_GENERATE_URL="http://localhost:1234/v1/chat/completions"
    export QWEN_GENERATE_MODEL="qwen-1.7b"
-   
+
    # Embedding model (optional)
    export EMBEDDING_MODEL_PATH="Alibaba-NLP/gte-Qwen2-1.5B-instruct"
    ```
 
 5. **Start Milvus services:**
+
    ```bash
    docker-compose up -d
    ```
 
 6. **Run the CLI to verify installation:**
+
    ```bash
    python main.py --help
    # Or directly:
@@ -179,12 +185,27 @@ Note: the project now uses a RAG approach with Qwen 3. Do not add or expect fine
 
 ### Usage Examples
 
+**Full automated build (recommended):**
+
+```bash
+# Configure settings in .env file
+cp .env.example .env
+# Edit .env with your paths and settings
+
+# Run complete pipeline: convert TSV → prepare data → import to Neo4j
+python cli.py build
+```
+
+**Individual steps:**
+
 **Convert TSV files to CSV:**
+
 ```bash
 python cli.py convert /path/to/tsv/files -o output_csv
 ```
 
 **Prepare MusicBrainz data for Neo4j:**
+
 ```bash
 python cli.py prepare-neo4j \
   --mbdump mbdump \
@@ -195,6 +216,7 @@ python cli.py prepare-neo4j \
 ```
 
 **Import data into Neo4j:**
+
 ```bash
 python cli.py import-neo4j \
   --headers-dir neo4j_headers \

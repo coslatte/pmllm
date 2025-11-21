@@ -1,316 +1,326 @@
 from pathlib import Path
-import argparse
-import sys
-from utils.file_manager.converter import Converter
-from utils.file_manager.csv_helper import run_pipeline
+import typer
+from dotenv import load_dotenv
+import os
+from typing import Optional, cast
+from utils.files_manager.converter import Converter
+from utils.files_manager.csv_helper import run_pipeline
 from db.neo4j.neo4j_importer import run_bulk_import, run_verification_queries
 
+app = typer.Typer()
 
-class CLI:
-    """Command-line interface for tabular data conversion and Neo4j import tools."""
 
-    @staticmethod
-    def _handle_convert(args: argparse.Namespace) -> None:
-        """
-        Convert TSV files to CSV format.
+def handle_convert(src: Path, out_dir: Path) -> int:
+    """
+    Convert TSV files to CSV format.
+    """
+    if not src.is_dir():
+        raise ValueError(f"Path must be a directory: {src}")
 
-        This command processes all TSV files found in the specified directory,
-        including those inside tar archives. It's designed to handle large
-        datasets like MusicBrainz dumps but works with any properly formatted
-        TSV files.
+    out_dir.mkdir(parents=True, exist_ok=True)
+    converted = Converter.convert_tsvs_in_dir(src, out_dir)
+    return converted
 
-        Note: MusicBrainz database exports use TSV format extensively.
-        """
-        src = Path(args.path)
-        if not src.is_dir():
-            raise ValueError(f"Path must be a directory: {src}")
 
-        out_dir = Path(args.out) if args.out else Path.cwd() / "out_csv"
-        out_dir.mkdir(parents=True, exist_ok=True)
+def handle_prepare(
+    mbdump_dir: Path,
+    headers_dir: Path,
+    labeled_dir: Path,
+    relationships_dir: Path,
+    delimiter: str,
+    encoding: str,
+    skip_headers: bool,
+    skip_labels: bool,
+    skip_relationships: bool,
+    sample_fraction: float,
+    sample_seed: int,
+):
+    """
+    Prepare MusicBrainz data for Neo4j.
+    """
+    run_pipeline(
+        mbdump_dir=mbdump_dir,
+        headers_dir=headers_dir,
+        labeled_dir=labeled_dir,
+        relationships_dir=relationships_dir,
+        delimiter=delimiter,
+        encoding=encoding,
+        skip_headers=skip_headers,
+        skip_labels=skip_labels,
+        skip_relationships=skip_relationships,
+        sample_fraction=sample_fraction,
+        sample_seed=sample_seed,
+    )
 
-        converted = Converter.convert_tsvs_in_dir(src, out_dir)
-        print(f"Converted {converted} file(s) to: {out_dir.resolve()}")
 
-    @staticmethod
-    def _handle_prepare(args: argparse.Namespace) -> None:
-        print("Preparing MusicBrainz data for Neo4j...")
-        sample_percent = max(0.0, min(args.sample_percent, 100.0))
-        sample_fraction = sample_percent / 100.0
-        run_pipeline(
-            mbdump_dir=Path(args.mbdump),
-            headers_dir=Path(args.headers_dir),
-            labeled_dir=Path(args.labeled_dir),
-            relationships_dir=Path(args.relationships_dir),
-            delimiter=args.delimiter,
-            encoding=args.encoding,
-            skip_headers=args.skip_headers,
-            skip_labels=args.skip_labels,
-            skip_relationships=args.skip_relationships,
-            sample_fraction=sample_fraction,
-            sample_seed=args.sample_seed,
+def handle_import_neo4j(
+    headers_dir: Path,
+    labeled_dir: Path,
+    relationships_dir: Path,
+    db_name: str,
+    delimiter: str,
+    array_delimiter: str,
+    skip_bad_relationships: bool,
+    multiline_fields: bool,
+    verify: bool,
+    user: str,
+    password: Optional[str],
+    host: str,
+    port: int,
+    neo4j_bin_path: Optional[Path] = None,
+    java_home: Optional[Path] = None,
+    legacy_import: bool = False,
+):
+    """
+    Run Neo4j bulk import.
+    """
+    run_bulk_import(
+        headers_dir=headers_dir,
+        labeled_dir=labeled_dir,
+        relationships_dir=relationships_dir,
+        db_name=db_name,
+        delimiter=delimiter,
+        array_delimiter=array_delimiter,
+        skip_bad_relationships=skip_bad_relationships,
+        multiline_fields=multiline_fields,
+        neo4j_bin_path=neo4j_bin_path,
+        java_home=java_home,
+        legacy_import=legacy_import,
+    )
+
+    if verify:
+        if not password:
+            password = os.getenv("NEO4J_PASSWORD")
+        if not password:
+            typer.echo("Warning: No password provided for verification. Set NEO4J_PASSWORD or provide in config.", err=True)
+            return
+        
+        run_verification_queries(
+            user=user,
+            password=password,
+            host=host,
+            port=port,
         )
-        print("Preparation completed!")
-        print("\nGenerated files:")
-        if not args.skip_headers:
-            print(f"  - {Path(args.headers_dir).resolve()} (directory with headers)")
-        if not args.skip_labels:
-            print(f"  - {Path(args.labeled_dir).resolve()} (labeled data)")
-        if not args.skip_relationships:
-            print(f"  - {Path(args.relationships_dir).resolve()} (relationship files)")
 
-    @staticmethod
-    def _handle_import_neo4j(args: argparse.Namespace) -> None:
-        headers_dir = Path(args.headers_dir)
-        labeled_dir = Path(args.labeled_dir)
-        relationships_dir = Path(args.relationships_dir)
-        neo4j_bin_path = Path(args.neo4j_bin_path) if args.neo4j_bin_path else None
-        java_home = Path(args.java_home) if args.java_home else None
 
-        print("Running Neo4j bulk import...")
-        run_bulk_import(
+@app.command("convert")
+def convert(
+    path: str = typer.Argument(..., help="Path to a directory containing .tsv files"),
+    out: str = typer.Option("out_csv", help="Output directory for generated CSV files"),
+):
+    """
+    Convert TSV files to CSV format (extracts tars, processes all TSVs found).
+    """
+    try:
+        src = Path(path)
+        out_dir = Path(out)
+        with typer.progressbar(length=1, label="Converting TSV to CSV") as progress:
+            converted = handle_convert(src, out_dir)
+            progress.update(1)
+        typer.secho(f"✓ Converted {converted} file(s) to: {out_dir.resolve()}", fg=typer.colors.GREEN)
+    except Exception as e:
+        typer.secho(f"Error: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+
+
+@app.command("prepare-neo4j")
+def prepare_neo4j(
+    mbdump: str = typer.Option("mbdump", help="Directory with the original MusicBrainz files"),
+    headers_dir: str = typer.Option("neo4j_headers", help="Output directory for headers"),
+    labeled_dir: str = typer.Option("labeled", help="Output directory for labeled files"),
+    relationships_dir: str = typer.Option("relationships", help="Output directory for relationship files"),
+    sample_percent: float = typer.Option(100.0, help="Percent of rows to keep when generating CSVs"),
+    sample_seed: int = typer.Option(42, help="Random seed controlling which rows are kept during sampling"),
+    delimiter: str = typer.Option("\t", help="Delimiter used by input files"),
+    encoding: str = typer.Option("utf-8", help="Encoding used when reading and writing files"),
+    skip_headers: bool = typer.Option(False, help="Skip header generation"),
+    skip_labels: bool = typer.Option(False, help="Skip creation of labeled files"),
+    skip_relationships: bool = typer.Option(False, help="Skip relationship generation"),
+):
+    """
+    Generate headers, labels, and relationships for Neo4j.
+    """
+    try:
+        sample_fraction = max(0.0, min(sample_percent, 100.0)) / 100.0
+        handle_prepare(
+            mbdump_dir=Path(mbdump),
+            headers_dir=Path(headers_dir),
+            labeled_dir=Path(labeled_dir),
+            relationships_dir=Path(relationships_dir),
+            delimiter=delimiter,
+            encoding=encoding,
+            skip_headers=skip_headers,
+            skip_labels=skip_labels,
+            skip_relationships=skip_relationships,
+            sample_fraction=sample_fraction,
+            sample_seed=sample_seed,
+        )
+        typer.secho("✓ Preparation completed!", fg=typer.colors.GREEN)
+        typer.echo("\nGenerated files:")
+        if not skip_headers:
+            typer.echo(f"  - {Path(headers_dir).resolve()} (directory with headers)")
+        if not skip_labels:
+            typer.echo(f"  - {Path(labeled_dir).resolve()} (labeled data)")
+        if not skip_relationships:
+            typer.echo(f"  - {Path(relationships_dir).resolve()} (relationship files)")
+    except Exception as e:
+        typer.secho(f"Error: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+
+
+@app.command("import-neo4j")
+def import_neo4j(
+    headers_dir: str = typer.Option("neo4j_headers", help="Directory containing Neo4j header CSV files"),
+    labeled_dir: str = typer.Option("labeled", help="Directory containing labeled data CSV files"),
+    relationships_dir: str = typer.Option("relationships", help="Directory containing relationship CSV files"),
+    db_name: str = typer.Option("musicbrainz.db", help="Target Neo4j database name for bulk import"),
+    delimiter: str = typer.Option("\t", help="Field delimiter used in CSV files"),
+    array_delimiter: str = typer.Option(";", help="Array delimiter used in CSV fields"),
+    allow_bad_relationships: bool = typer.Option(False, help="Do not skip bad relationships"),
+    multiline_fields: bool = typer.Option(True, help="Treat fields as multiline"),
+    verify: bool = typer.Option(False, help="Run simple verification Cypher queries after import"),
+    user: str = typer.Option("neo4j", help="Neo4j username for verification queries"),
+    password: str = typer.Option(None, help="Neo4j password for verification queries"),
+    host: str = typer.Option("localhost", help="Neo4j host for verification queries"),
+    port: int = typer.Option(7687, help="Neo4j Bolt port for verification queries"),
+    neo4j_bin_path: str = typer.Option(None, help="Path to Neo4j bin directory"),
+    java_home: str = typer.Option(None, help="Path to Java installation"),
+    legacy_import: bool = typer.Option(False, help="Use legacy neo4j-admin import"),
+):
+    """
+    Run Neo4j bulk import using generated CSV headers and data.
+    """
+    try:
+        neo4j_bin = Path(neo4j_bin_path) if neo4j_bin_path else None  # type: ignore
+        java_home_path = Path(java_home) if java_home else None  # type: ignore
+        typer.secho("Running Neo4j bulk import...", fg=typer.colors.BLUE)
+        handle_import_neo4j(
+            headers_dir=Path(headers_dir),
+            labeled_dir=Path(labeled_dir),
+            relationships_dir=Path(relationships_dir),
+            db_name=db_name,
+            delimiter=delimiter,
+            array_delimiter=array_delimiter,
+            skip_bad_relationships=not allow_bad_relationships,
+            multiline_fields=multiline_fields,
+            verify=verify,
+            user=user,
+            password=password,
+            host=host,
+            port=port,
+            neo4j_bin_path=neo4j_bin,
+            java_home=java_home_path,
+            legacy_import=legacy_import,
+        )
+        typer.secho("✓ Neo4j bulk import completed.", fg=typer.colors.GREEN)
+        if verify:
+            typer.secho("✓ Verification queries completed.", fg=typer.colors.GREEN)
+    except Exception as e:
+        typer.secho(f"Error: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+
+
+@app.command("build")
+def build(
+    config: str = typer.Option(".env", help="Path to config file (.env format)"),
+):
+    """
+    Run the full build process: convert TSV to CSV, prepare headers/data, and import to Neo4j.
+    Reads configuration from the specified .env file.
+    """
+    try:
+        load_dotenv(config)
+        typer.secho(f"Loaded config from: {config}", fg=typer.colors.CYAN)
+
+        # Extract config values with defaults
+        tsv_dir = Path(os.getenv("TSV_DIR", "mbdump"))
+        csv_out_dir = Path(os.getenv("CSV_OUT_DIR", "out_csv"))
+        headers_dir = Path(os.getenv("HEADERS_DIR", "neo4j_headers"))
+        labeled_dir = Path(os.getenv("LABELED_DIR", "labeled"))
+        relationships_dir = Path(os.getenv("RELATIONSHIPS_DIR", "relationships"))
+        sample_percent = float(os.getenv("SAMPLE_PERCENT", "100.0"))
+        sample_seed = int(os.getenv("SAMPLE_SEED", "42"))
+        delimiter = os.getenv("DELIMITER", "\t")
+        encoding = os.getenv("ENCODING", "utf-8")
+        skip_headers = os.getenv("SKIP_HEADERS", "false").lower() == "true"
+        skip_labels = os.getenv("SKIP_LABELS", "false").lower() == "true"
+        skip_relationships = os.getenv("SKIP_RELATIONSHIPS", "false").lower() == "true"
+        db_name = os.getenv("DB_NAME", "musicbrainz.db")
+        array_delimiter = os.getenv("ARRAY_DELIMITER", ";")
+        allow_bad_relationships = os.getenv("ALLOW_BAD_RELATIONSHIPS", "false").lower() == "true"
+        multiline_fields = os.getenv("MULTILINE_FIELDS", "true").lower() == "true"
+        verify = os.getenv("VERIFY", "true").lower() == "true"
+        neo4j_user = os.getenv("NEO4J_USER", "neo4j")
+        neo4j_password = os.getenv("NEO4J_PASSWORD", "")
+        neo4j_host = os.getenv("NEO4J_HOST", "localhost")
+        neo4j_port = int(os.getenv("NEO4J_PORT", "7687"))
+        neo4j_bin_path = Path(cast(str, os.getenv("NEO4J_BIN_PATH"))) if os.getenv("NEO4J_BIN_PATH") else None
+        java_home = Path(cast(str, os.getenv("JAVA_HOME"))) if os.getenv("JAVA_HOME") else None
+        legacy_import = os.getenv("LEGACY_IMPORT", "false").lower() == "true"
+
+        sample_fraction = max(0.0, min(sample_percent, 100.0)) / 100.0
+
+        typer.secho("Starting full build process...", fg=typer.colors.BLUE, bold=True)
+
+        # Step 1: Convert TSV to CSV
+        typer.secho("\nStep 1: Converting TSV to CSV", fg=typer.colors.YELLOW, bold=True)
+        converted = handle_convert(tsv_dir, csv_out_dir)
+        typer.secho(f"✓ Converted {converted} file(s) to: {csv_out_dir.resolve()}", fg=typer.colors.GREEN)
+
+        # Step 2: Prepare headers and data
+        typer.secho("\nStep 2: Preparing headers and data for Neo4j", fg=typer.colors.YELLOW, bold=True)
+        handle_prepare(
+            mbdump_dir=tsv_dir,
             headers_dir=headers_dir,
             labeled_dir=labeled_dir,
             relationships_dir=relationships_dir,
-            db_name=args.db_name,
-            delimiter=args.delimiter,
-            array_delimiter=args.array_delimiter,
-            skip_bad_relationships=not args.allow_bad_relationships,
-            multiline_fields=args.multiline_fields,
+            delimiter=delimiter,
+            encoding=encoding,
+            skip_headers=skip_headers,
+            skip_labels=skip_labels,
+            skip_relationships=skip_relationships,
+            sample_fraction=sample_fraction,
+            sample_seed=sample_seed,
+        )
+        typer.secho("✓ Preparation completed!", fg=typer.colors.GREEN)
+        typer.echo("Generated files:")
+        if not skip_headers:
+            typer.echo(f"  - {headers_dir.resolve()} (headers)")
+        if not skip_labels:
+            typer.echo(f"  - {labeled_dir.resolve()} (labeled data)")
+        if not skip_relationships:
+            typer.echo(f"  - {relationships_dir.resolve()} (relationships)")
+
+        # Step 3: Import to Neo4j
+        typer.secho("\nStep 3: Importing to Neo4j", fg=typer.colors.YELLOW, bold=True)
+        handle_import_neo4j(
+            headers_dir=headers_dir,
+            labeled_dir=labeled_dir,
+            relationships_dir=relationships_dir,
+            db_name=db_name,
+            delimiter=delimiter,
+            array_delimiter=array_delimiter,
+            skip_bad_relationships=not allow_bad_relationships,
+            multiline_fields=multiline_fields,
+            verify=verify,
+            user=neo4j_user,
+            password=neo4j_password,
+            host=neo4j_host,
+            port=neo4j_port,
             neo4j_bin_path=neo4j_bin_path,
             java_home=java_home,
-            legacy_import=args.legacy_import,
+            legacy_import=legacy_import,
         )
-        print("Neo4j bulk import completed.")
+        typer.secho("✓ Neo4j import completed.", fg=typer.colors.GREEN)
+        if verify:
+            typer.secho("✓ Verification completed.", fg=typer.colors.GREEN)
 
-        if args.verify:
-            import os
-            password = args.password or os.getenv("NEO4J_PASSWORD")
-            if not password:
-                print("Warning: No password provided. Set NEO4J_PASSWORD environment variable or use --password")
-                return
-            
-            print("Running verification Cypher queries...")
-            run_verification_queries(
-                user=args.user,
-                password=password,
-                host=args.host,
-                port=args.port,
-            )
-            print("Verification queries completed.")
+        typer.secho("\n🎉 Full build process completed successfully!", fg=typer.colors.GREEN, bold=True)
 
-    @staticmethod
-    def _build_parser() -> argparse.ArgumentParser:
-        parser = argparse.ArgumentParser(
-            prog="pmllm-cli",
-            description="""
-            Command-line tools for tabular data processing and Neo4j import.
-            
-            This tool provides utilities for:
-            - Converting TSV files to CSV (including tar extraction)
-            - Preparing MusicBrainz data for Neo4j import
-            - Running Neo4j bulk imports
-            
-            Note: MusicBrainz database dumps use TSV format extensively.
-            The conversion tools work with any properly formatted TSV files.
-            """,
-        )
-        subparsers = parser.add_subparsers(dest="command")
-
-        convert_parser = subparsers.add_parser(
-            "convert",
-            help="Convert TSV files to CSV format (extracts tars, processes all TSVs found)",
-        )
-        convert_parser.add_argument(
-            "path",
-            help="Path to a directory containing .tsv files",
-        )
-        convert_parser.add_argument(
-            "-o",
-            "--out",
-            help="Output directory for generated CSV files (default: out_csv in current dir)",
-        )
-        convert_parser.set_defaults(handler=CLI._handle_convert)
-
-        prepare_parser = subparsers.add_parser(
-            "prepare-neo4j",
-            help="Generate headers, labels, and relationships for Neo4j",
-        )
-        prepare_parser.add_argument(
-            "--mbdump",
-            default="mbdump",
-            help="Directory with the original MusicBrainz files",
-        )
-        prepare_parser.add_argument(
-            "--headers-dir",
-            default="neo4j_headers",
-            help="Output directory for headers",
-        )
-        prepare_parser.add_argument(
-            "--labeled-dir",
-            default="labeled",
-            help="Output directory for labeled files",
-        )
-        prepare_parser.add_argument(
-            "--relationships-dir",
-            default="relationships",
-            help="Output directory for relationship files",
-        )
-        prepare_parser.add_argument(
-            "--sample-percent",
-            type=float,
-            default=100.0,
-            help="Percent of rows to keep when generating CSVs (default: 100%%)",
-        )
-        prepare_parser.add_argument(
-            "--sample-seed",
-            type=int,
-            default=42,
-            help="Random seed controlling which rows are kept during sampling",
-        )
-        prepare_parser.add_argument(
-            "--delimiter",
-            default="\t",
-            help="Delimiter used by input files",
-        )
-        prepare_parser.add_argument(
-            "--encoding",
-            default="utf-8",
-            help="Encoding used when reading and writing files",
-        )
-        prepare_parser.add_argument(
-            "--skip-headers",
-            action="store_true",
-            help="Skip header generation",
-        )
-        prepare_parser.add_argument(
-            "--skip-labels",
-            action="store_true",
-            help="Skip creation of labeled files",
-        )
-        prepare_parser.add_argument(
-            "--skip-relationships",
-            action="store_true",
-            help="Skip relationship generation",
-        )
-        prepare_parser.set_defaults(handler=CLI._handle_prepare)
-
-        import_parser = subparsers.add_parser(
-            "import-neo4j",
-            help="Run Neo4j bulk import using generated CSV headers and data",
-        )
-        import_parser.add_argument(
-            "--headers-dir",
-            default="neo4j_headers",
-            help="Directory containing Neo4j header CSV files",
-        )
-        import_parser.add_argument(
-            "--labeled-dir",
-            default="labeled",
-            help="Directory containing labeled data CSV files",
-        )
-        import_parser.add_argument(
-            "--relationships-dir",
-            default="relationships",
-            help="Directory containing relationship CSV files",
-        )
-        import_parser.add_argument(
-            "--db-name",
-            default="musicbrainz.db",
-            help="Target Neo4j database name for bulk import",
-        )
-        import_parser.add_argument(
-            "--delimiter",
-            default="\t",
-            help="Field delimiter used in CSV files",
-        )
-        import_parser.add_argument(
-            "--array-delimiter",
-            default=";",
-            help="Array delimiter used in CSV fields",
-        )
-        import_parser.add_argument(
-            "--allow-bad-relationships",
-            action="store_true",
-            help="Do not skip bad relationships (by default they are skipped)",
-        )
-        import_parser.add_argument(
-            "--multiline-fields",
-            action="store_true",
-            default=True,
-            help="Treat fields as multiline (default: true)",
-        )
-        import_parser.add_argument(
-            "--verify",
-            action="store_true",
-            help="Run simple verification Cypher queries after import",
-        )
-        import_parser.add_argument(
-            "--user",
-            default="neo4j",
-            help="Neo4j username for verification queries",
-        )
-        import_parser.add_argument(
-            "--password",
-            default=None,
-            help="Neo4j password for verification queries (use environment variable NEO4J_PASSWORD or pass via CLI)",
-        )
-        import_parser.add_argument(
-            "--host",
-            default="localhost",
-            help="Neo4j host for verification queries",
-        )
-        import_parser.add_argument(
-            "--port",
-            type=int,
-            default=7687,
-            help="Neo4j Bolt port for verification queries",
-        )
-        import_parser.add_argument(
-            "--neo4j-bin-path",
-            default=None,
-            help="Path to Neo4j bin directory (e.g., for Neo4j Desktop installations)",
-        )
-        import_parser.add_argument(
-            "--java-home",
-            default=None,
-            help="Path to Java installation (JAVA_HOME) to use for the import process",
-        )
-        import_parser.add_argument(
-            "--legacy-import",
-            action="store_true",
-            help="Use legacy neo4j-admin import instead of modern database import (for older Neo4j versions)",
-        )
-        import_parser.set_defaults(handler=CLI._handle_import_neo4j)
-
-        return parser
-
-    @staticmethod
-    def run(argv=None) -> None:
-        """Parse args, execute requested command, and print a summary."""
-
-        parser = CLI._build_parser()
-        raw_args = sys.argv[1:] if argv is None else list(argv)
-
-        # Backwards compatibility: if command omitted, assume "convert".
-        # But only if there are args and the first one isn't a known command.
-        # If no args, print help.
-        if not raw_args:
-            parser.print_help()
-            return
-
-        if raw_args[0] not in {"convert", "prepare-neo4j", "import-neo4j", "-h", "--help"}:
-             # If the user provided paths but no command, assume 'convert' for legacy reasons
-             # But be careful not to swallow errors if they just typed a typo command
-             raw_args.insert(0, "convert")
-
-        args = parser.parse_args(raw_args)
-
-        if not hasattr(args, "handler"):
-            parser.print_help()
-            return
-
-        args.handler(args)
+    except Exception as e:
+        typer.secho(f"Error during build: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":
-    CLI.run()
+    app()

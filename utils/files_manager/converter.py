@@ -1,7 +1,7 @@
 from pathlib import Path
 import tarfile
 import tempfile
-from utils.file_manager.reader import ensure_tsv, convert_to_csv
+from utils.files_manager.reader import ensure_tsv, convert_to_csv
 
 
 class Converter:
