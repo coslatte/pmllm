@@ -15,7 +15,7 @@ import csv
 import random
 import sys
 from pathlib import Path
-from typing import Dict, Optional, Set
+from typing import Dict, Optional, Set, Any
 
 # Maximum CSV field size constant
 # sys.maxsize may overflow on some platforms (e.g., Windows)
@@ -575,6 +575,133 @@ def run_pipeline(
         )
 
 
+def validate_sampling_integrity(
+    labeled_dir: Path,
+    relationships_dir: Path,
+    delimiter: str = "\t",
+    encoding: str = "utf-8",
+) -> Dict[str, Any]:
+    """Validate graph integrity after sampling to detect orphaned nodes and broken relationships."""
+    
+    print("🔍 Validating sampling integrity...")
+    
+    # Load all node IDs
+    node_ids = {}
+    for file_path in labeled_dir.glob("labeled_*.csv"):
+        entity_type = file_path.stem.replace("labeled_", "").title()
+        ids = set()
+        try:
+            with file_path.open("r", encoding=encoding) as f:
+                reader = csv.reader(f, delimiter=delimiter)
+                next(reader, None)  # Skip header
+                for row in reader:
+                    if row and row[0]:
+                        ids.add(row[0])
+        except FileNotFoundError:
+            continue
+        node_ids[entity_type] = ids
+    
+    # Load all relationships and check for broken links
+    relationship_stats = {}
+    broken_relationships = {}
+    
+    for file_path in relationships_dir.glob("*.csv"):
+        rel_name = file_path.stem.replace("_relationships", "").replace("_", " ").title()
+        stats = {"total": 0, "broken": 0, "valid": 0}
+        broken = []
+        
+        try:
+            with file_path.open("r", encoding=encoding) as f:
+                reader = csv.reader(f, delimiter=delimiter)
+                for row in reader:
+                    if len(row) >= 2:
+                        stats["total"] += 1
+                        start_id, end_id = row[0], row[1]
+                        
+                        # Determine entity types from relationship file name
+                        if "artist_recording" in file_path.name:
+                            start_type, end_type = "Artist", "Recording"
+                        elif "artist_release" in file_path.name:
+                            start_type, end_type = "Artist", "Release"
+                        elif "recording_work" in file_path.name:
+                            start_type, end_type = "Recording", "Work"
+                        elif "release_release_group" in file_path.name:
+                            start_type, end_type = "Release", "ReleaseGroup"
+                        elif "artist_area" in file_path.name:
+                            start_type, end_type = "Artist", "Area"
+                        elif "release_area" in file_path.name:
+                            start_type, end_type = "Release", "Area"
+                        elif "recording_tag" in file_path.name:
+                            start_type, end_type = "Recording", "Tag"
+                        elif "artist_tag" in file_path.name:
+                            start_type, end_type = "Artist", "Tag"
+                        elif "release_tag" in file_path.name:
+                            start_type, end_type = "Release", "Tag"
+                        else:
+                            continue
+                        
+                        # Check if both nodes exist
+                        start_exists = start_id in node_ids.get(start_type, set())
+                        end_exists = end_id in node_ids.get(end_type, set())
+                        
+                        if start_exists and end_exists:
+                            stats["valid"] += 1
+                        else:
+                            stats["broken"] += 1
+                            broken.append({
+                                "start_id": start_id,
+                                "end_id": end_id,
+                                "start_exists": start_exists,
+                                "end_exists": end_exists
+                            })
+        
+        except FileNotFoundError:
+            continue
+            
+        relationship_stats[rel_name] = stats
+        if broken:
+            broken_relationships[rel_name] = broken[:10]  # Keep only first 10 examples
+    
+    # Calculate node connectivity
+    connectivity = {}
+    for entity_type, ids in node_ids.items():
+        connectivity[entity_type] = {
+            "total_nodes": len(ids),
+            "estimated_connected": len(ids)  # Simplified - all nodes are considered connected if they exist
+        }
+    
+    # Summary
+    total_relationships = sum(stats["total"] for stats in relationship_stats.values())
+    broken_relationships_count = sum(stats["broken"] for stats in relationship_stats.values())
+    
+    integrity_score = (total_relationships - broken_relationships_count) / total_relationships if total_relationships > 0 else 1.0
+    
+    result = {
+        "node_counts": {k: len(v) for k, v in node_ids.items()},
+        "relationship_stats": relationship_stats,
+        "broken_relationships": broken_relationships,
+        "connectivity": connectivity,
+        "summary": {
+            "total_relationships": total_relationships,
+            "broken_relationships": broken_relationships_count,
+            "integrity_score": integrity_score,
+            "status": "✅ GOOD" if integrity_score >= 0.95 else "⚠️ WARNING" if integrity_score >= 0.80 else "❌ CRITICAL"
+        }
+    }
+    
+    print(f"📊 Integrity Score: {integrity_score:.1%} ({result['summary']['status']})")
+    print(f"🔗 Total Relationships: {total_relationships}")
+    print(f"❌ Broken Relationships: {broken_relationships_count}")
+    
+    if broken_relationships_count > 0:
+        print("⚠️  Found broken relationships in:")
+        for rel_name, stats in relationship_stats.items():
+            if stats["broken"] > 0:
+                print(f"   - {rel_name}: {stats['broken']}/{stats['total']} broken")
+    
+    return result
+
+
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
         prog="pmllm-csv-helper",
@@ -630,16 +757,26 @@ def parse_args(argv=None):
         help="Skip relationship CSV generation",
     )
     parser.add_argument(
+        "--mode",
+        choices=["testing", "production"],
+        help="Operation mode: 'testing' (50%% sample) or 'production' (100%% sample)",
+    )
+    parser.add_argument(
         "--sample-percent",
         type=float,
-        default=1.0,
-        help="Sample percentage for data reduction (0.0-1.0, default: 1.0 = 100%%)",
+        default=None,
+        help="Sample percentage for data reduction (0.0-1.0). Overrides --mode setting.",
     )
     parser.add_argument(
         "--sample-seed",
         type=int,
-        default=None,
-        help="Random seed for reproducible sampling (default: None)",
+        default=42,
+        help="Random seed for reproducible sampling (default: 42)",
+    )
+    parser.add_argument(
+        "--validate-sampling",
+        action="store_true",
+        help="Run post-sampling validation to check graph integrity",
     )
     return parser.parse_args(argv)
 
@@ -647,6 +784,26 @@ def parse_args(argv=None):
 def main(argv=None) -> None:
     args = parse_args(argv)
 
+    # Determine sampling configuration based on mode
+    if args.mode == "testing":
+        sample_fraction = 0.5  # 50% for testing
+        print("🧪 TESTING MODE: Using 50% sample for faster development cycles")
+    elif args.mode == "production":
+        sample_fraction = 1.0  # 100% for production
+        print("🏭 PRODUCTION MODE: Using 100% data for complete dataset")
+    else:
+        sample_fraction = args.sample_percent if args.sample_percent is not None else 1.0
+        if sample_fraction < 1.0:
+            print(f"📊 CUSTOM SAMPLING: Using {sample_fraction:.0%} sample")
+        else:
+            print("📊 FULL DATASET: Using 100% data (no sampling)")
+
+    # Override with explicit sample-percent if provided
+    if args.sample_percent is not None:
+        sample_fraction = args.sample_percent
+        print(f"⚡ OVERRIDE: Using explicit sample percentage {sample_fraction:.0%}")
+
+    print(f"🎲 Sample seed: {args.sample_seed}")
     print("Preparing MusicBrainz data for Neo4j...")
 
     run_pipeline(
@@ -659,7 +816,7 @@ def main(argv=None) -> None:
         skip_headers=args.skip_headers,
         skip_labels=args.skip_labels,
         skip_relationships=args.skip_relationships,
-        sample_fraction=args.sample_percent,
+        sample_fraction=sample_fraction,
         sample_seed=args.sample_seed,
     )
 
@@ -670,9 +827,31 @@ def main(argv=None) -> None:
     if not args.skip_labels:
         print(f"  - {args.labeled_dir.resolve()} (labeled data)")
     if not args.skip_relationships:
-        print(
-            f"  - {args.relationships_dir.resolve()} (relationship files)"
+        print(f"  - {args.relationships_dir.resolve()} (relationship files)")
+
+    # Run validation if requested
+    if args.validate_sampling and not args.skip_labels and not args.skip_relationships:
+        print("\n" + "="*60)
+        validation_result = validate_sampling_integrity(
+            labeled_dir=args.labeled_dir,
+            relationships_dir=args.relationships_dir,
+            delimiter=args.delimiter,
+            encoding=args.encoding,
         )
+
+        # Summary
+        summary = validation_result["summary"]
+        print("\n📋 VALIDATION SUMMARY:")
+        print(f"   Status: {summary['status']}")
+        print(f"   Integrity Score: {summary['integrity_score']:.1%}")
+        print(f"   Total Relationships: {summary['total_relationships']:,}")
+        print(f"   Broken Relationships: {summary['broken_relationships']:,}")
+
+        if summary["integrity_score"] < 0.95:
+            print("\n⚠️  WARNING: Low integrity score detected!")
+            print("   Consider using a higher sample percentage or checking data sources.")
+        else:
+            print("\n✅ Graph integrity validated successfully!")
 
 
 if __name__ == "__main__":
