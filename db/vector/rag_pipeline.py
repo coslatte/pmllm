@@ -2,9 +2,6 @@ import os
 from typing import Any, Dict, List
 
 import requests
-from typing import List
-
-from .vector_query import search
 
 from .vector_query import search
 
@@ -36,7 +33,6 @@ def qwen_generate(prompt: str) -> str:
     try:
         response = requests.post(QWEN_GENERATE_URL, json=payload, timeout=30)
         response.raise_for_status()
-<<<<<<< HEAD
         data: Dict[str, Any] = response.json()
         choice_list = data.get("choices")
         if not isinstance(choice_list, list) or not choice_list:
@@ -51,22 +47,15 @@ def qwen_generate(prompt: str) -> str:
         if not isinstance(content, str):
             raise ValueError("LLM response content missing")
         return content
-=======
-        data = response.json()
-        return data["choices"][0]["message"]["content"]
     except requests.exceptions.RequestException as e:
         return f"Error connecting to LLM service: {e}"
     except (KeyError, IndexError) as e:
         return f"Error parsing LLM response: {e}"
->>>>>>> 4c8ca2a7bcbb02c697fd2715883a66dd54803212
     except Exception as e:
         return f"Unexpected error generating response: {e}"
 
 
-<<<<<<< HEAD
 def build_context(query: str, top_k: int = 5) -> List[str]:
-=======
-def build_context(query: str, top_k: int = 5):
     """Retrieve relevant context documents for a query.
     
     Args:
@@ -76,7 +65,6 @@ def build_context(query: str, top_k: int = 5):
     Returns:
         List of text strings from relevant documents
     """
->>>>>>> 4c8ca2a7bcbb02c697fd2715883a66dd54803212
     results = search(query, limit=top_k, return_raw=True)
     context: List[str] = []
     for row in results:

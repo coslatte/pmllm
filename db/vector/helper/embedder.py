@@ -1,10 +1,6 @@
 import os
-<<<<<<< HEAD
 from typing import Any, List
-=======
-from typing import Sequence
 import sys
->>>>>>> 4c8ca2a7bcbb02c697fd2715883a66dd54803212
 
 # We will use sentence-transformers locally to avoid LM Studio memory conflicts
 # and to speed up batch processing.
@@ -35,21 +31,7 @@ except Exception as e:
         raise
 
 
-<<<<<<< HEAD
 def embed(text: str) -> List[float]:
-    """Return the embedding generated locally by sentence-transformers."""
-    vector: Any = _model.encode(text, normalize_embeddings=True)
-
-    if hasattr(vector, "tolist"):
-        return list(vector.tolist())  # type: ignore[arg-type]
-
-    if isinstance(vector, (list, tuple)):
-        return list(vector)
-
-    # Fallback for unexpected types (e.g., numpy array without tolist)
-    return [float(v) for v in vector]  # type: ignore[call-arg]
-=======
-def embed(text: str) -> Sequence[float]:
     """Return the embedding generated locally by sentence-transformers.
     
     Args:
@@ -63,6 +45,13 @@ def embed(text: str) -> Sequence[float]:
     """
     if _model is None:
         raise RuntimeError("Embedding model failed to load. Cannot generate embeddings.")
-    # normalize_embeddings=True is usually good for cosine similarity
-    return _model.encode(text, normalize_embeddings=True).tolist()
->>>>>>> 4c8ca2a7bcbb02c697fd2715883a66dd54803212
+    vector: Any = _model.encode(text, normalize_embeddings=True)
+
+    if hasattr(vector, "tolist"):
+        return list(vector.tolist())  # type: ignore[arg-type]
+
+    if isinstance(vector, (list, tuple)):
+        return list(vector)
+
+    # Fallback for unexpected types (e.g., numpy array without tolist)
+    return [float(v) for v in vector]  # type: ignore[call-arg]

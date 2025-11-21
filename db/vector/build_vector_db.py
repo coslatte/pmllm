@@ -2,8 +2,6 @@ from db.neo4j.neo4j_handler import stream_nodes
 from .helper.text_builder import build_text
 from .helper.embedder import embed
 from .milvus_store import init_milvus
-<<<<<<< HEAD
-=======
 
 # Milvus VARCHAR field limit for text storage
 MAX_TEXT_LENGTH = 2000
@@ -24,7 +22,6 @@ def truncate_text(text: str, max_length: int = MAX_TEXT_LENGTH, suffix: str = TR
     if len(text) > max_length:
         return text[:max_length - len(suffix)] + suffix
     return text
->>>>>>> 4c8ca2a7bcbb02c697fd2715883a66dd54803212
 
 
 def populate(labels):

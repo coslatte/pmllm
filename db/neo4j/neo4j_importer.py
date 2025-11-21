@@ -145,22 +145,10 @@ def run_bulk_import(
         if using_docker:
             into_path = f"/data/databases/{db_name}"
         else:
-<<<<<<< HEAD
             data_dir = _resolve_local_data_dir()
             data_dir.parent.mkdir(parents=True, exist_ok=True)
             into_path = str(data_dir)
         cmd.append(f"--into={into_path}")
-=======
-            # For local, use environment variable or current directory
-            neo4j_data_dir = os.getenv("NEO4J_DATA_DIR")
-            if neo4j_data_dir:
-                data_dir = Path(neo4j_data_dir) / "databases" / db_name
-            else:
-                # Default to local data directory
-                data_dir = Path.cwd() / "data" / "neo4j" / "data" / "databases" / db_name
-            data_dir.parent.mkdir(parents=True, exist_ok=True)
-            cmd.append(f"--into={data_dir}")
->>>>>>> 4c8ca2a7bcbb02c697fd2715883a66dd54803212
     else:
         cmd.extend(
             [
@@ -215,7 +203,7 @@ def run_bulk_import(
         cmd.append(db_name)
     else:
         # Legacy import has different flags
-        cmd.append(f"--bad-tolerance=1000")
+        cmd.append("--bad-tolerance=1000")
         cmd.append(f"--multiline-fields={'true' if multiline_fields else 'false'}")
         # --into already added above
 
