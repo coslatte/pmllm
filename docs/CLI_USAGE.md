@@ -76,42 +76,42 @@ python utils/file_manager/csv_helper.py [OPTIONS]
 
 ### Directory Options
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--mbdump DIR` | `mbdump` | Directory containing MusicBrainz TSV source files |
-| `--headers-dir DIR` | `neo4j_headers` | Output directory for Neo4j header CSV files |
-| `--labeled-dir DIR` | `labeled` | Output directory for labeled data CSV files |
-| `--relationships-dir DIR` | `relationships` | Output directory for relationship CSV files |
+| Option                    | Default         | Description                                       |
+| ------------------------- | --------------- | ------------------------------------------------- |
+| `--mbdump DIR`            | `mbdump`        | Directory containing MusicBrainz TSV source files |
+| `--headers-dir DIR`       | `neo4j_headers` | Output directory for Neo4j header CSV files       |
+| `--labeled-dir DIR`       | `labeled`       | Output directory for labeled data CSV files       |
+| `--relationships-dir DIR` | `relationships` | Output directory for relationship CSV files       |
 
 ### Processing Options
 
-| Option | Description |
-|--------|-------------|
-| `--skip-headers` | Skip header CSV generation |
-| `--skip-labels` | Skip labeled data generation |
+| Option                 | Description                      |
+| ---------------------- | -------------------------------- |
+| `--skip-headers`       | Skip header CSV generation       |
+| `--skip-labels`        | Skip labeled data generation     |
 | `--skip-relationships` | Skip relationship CSV generation |
 
 ### Sampling Options
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--mode {testing,production}` | - | Operation mode: `testing` (50%) or `production` (100%) |
-| `--sample-percent FLOAT` | - | Custom sample percentage (0.0-1.0). Overrides `--mode` |
-| `--sample-seed INT` | `42` | Random seed for reproducible sampling |
+| Option                        | Default | Description                                            |
+| ----------------------------- | ------- | ------------------------------------------------------ |
+| `--mode {testing,production}` | -       | Operation mode: `testing` (50%) or `production` (100%) |
+| `--sample-percent FLOAT`      | -       | Custom sample percentage (0.0-1.0). Overrides `--mode` |
+| `--sample-seed INT`           | `42`    | Random seed for reproducible sampling                  |
 
 ### Validation Options
 
-| Option | Description |
-|--------|-------------|
+| Option                | Description                                  |
+| --------------------- | -------------------------------------------- |
 | `--validate-sampling` | Run post-sampling graph integrity validation |
 
 ### General Options
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--delimiter CHAR` | `\t` | Field delimiter in input files |
-| `--encoding STR` | `utf-8` | Text encoding for reading/writing |
-| `-h, --help` | - | Show help message and exit |
+| Option             | Default | Description                       |
+| ------------------ | ------- | --------------------------------- |
+| `--delimiter CHAR` | `\t`    | Field delimiter in input files    |
+| `--encoding STR`   | `utf-8` | Text encoding for reading/writing |
+| `-h, --help`       | -       | Show help message and exit        |
 
 ## Usage Examples
 
@@ -128,6 +128,7 @@ python utils/file_manager/csv_helper.py \
 ```
 
 **Output:**
+
 ```
 🏭 PRODUCTION MODE: Using 100% data for complete dataset
 🎲 Sample seed: 42
@@ -170,6 +171,7 @@ python utils/file_manager/csv_helper.py \
 ```
 
 **Output:**
+
 ```
 🧪 TESTING MODE: Using 50% sample for faster development cycles
 🎲 Sample seed: 42
@@ -233,12 +235,12 @@ The tool uses **referential integrity sampling** to maintain graph consistency:
 
 ### Recommended Configurations
 
-| Use Case | Mode | Sample % | Validation | Notes |
-|----------|------|----------|------------|-------|
-| **Development** | `testing` | 50% | ✅ Required | Fast iteration, good for debugging |
-| **CI/CD Testing** | `testing` | 50% | ✅ Required | Automated testing with consistency |
-| **Staging** | Custom | 25-75% | ✅ Required | Balance speed vs. representativeness |
-| **Production** | `production` | 100% | ✅ Recommended | Complete dataset, full validation |
+| Use Case          | Mode         | Sample % | Validation     | Notes                                |
+| ----------------- | ------------ | -------- | -------------- | ------------------------------------ |
+| **Development**   | `testing`    | 50%      | ✅ Required    | Fast iteration, good for debugging   |
+| **CI/CD Testing** | `testing`    | 50%      | ✅ Required    | Automated testing with consistency   |
+| **Staging**       | Custom       | 25-75%   | ✅ Required    | Balance speed vs. representativeness |
+| **Production**    | `production` | 100%     | ✅ Recommended | Complete dataset, full validation    |
 
 ### Sampling Best Practices
 
@@ -261,6 +263,7 @@ The `--validate-sampling` flag performs comprehensive integrity checks:
 ### Validation Output Interpretation
 
 #### ✅ GOOD Status (≥95% integrity)
+
 ```
 📊 Integrity Score: 98.7% (✅ GOOD)
 🔗 Total Relationships: 45,231
@@ -270,6 +273,7 @@ The `--validate-sampling` flag performs comprehensive integrity checks:
 **Action**: Proceed normally, minor issues acceptable.
 
 #### ⚠️ WARNING Status (80-95% integrity)
+
 ```
 📊 Integrity Score: 87.3% (⚠️ WARNING)
 🔗 Total Relationships: 45,231
@@ -279,6 +283,7 @@ The `--validate-sampling` flag performs comprehensive integrity checks:
 **Action**: Investigate data sources or increase sample size.
 
 #### ❌ CRITICAL Status (<80% integrity)
+
 ```
 📊 Integrity Score: 65.4% (❌ CRITICAL)
 🔗 Total Relationships: 45,231
@@ -290,6 +295,7 @@ The `--validate-sampling` flag performs comprehensive integrity checks:
 ### Validation Details
 
 The validation provides:
+
 - **Node counts** by type
 - **Relationship statistics** with broken/total counts
 - **Examples of broken relationships** (first 10)
@@ -300,42 +306,50 @@ The validation provides:
 ### Common Issues
 
 #### 1. Missing Source Files
+
 ```
 FileNotFoundError: Required file not found: mbdump/artist
 ```
 
 **Solution**: Ensure MusicBrainz TSV files are in the correct directory:
+
 ```bash
 ls -la mbdump/
 # Should contain: artist, recording, release, work, area, etc.
 ```
 
 #### 2. Low Integrity Scores
+
 ```
 ⚠️ WARNING: Low integrity score detected!
 ```
 
 **Solutions**:
+
 - Increase sample percentage: `--sample-percent 0.75`
 - Check data source integrity
 - Use different random seed: `--sample-seed 123`
 
 #### 3. Memory Issues with Large Datasets
+
 ```
 MemoryError: Unable to allocate array
 ```
 
 **Solutions**:
+
 - Use sampling: `--mode testing`
 - Process in smaller batches
 - Increase system memory
 
 #### 4. Encoding Errors
+
 ```
 UnicodeDecodeError: 'utf-8' codec can't decode
 ```
 
 **Solutions**:
+
 - Specify correct encoding: `--encoding latin-1`
 - Check source file encoding
 - Clean problematic characters
@@ -343,6 +357,7 @@ UnicodeDecodeError: 'utf-8' codec can't decode
 ### Performance Optimization
 
 #### For Large Datasets
+
 ```bash
 # Use testing mode for development
 python utils/file_manager/csv_helper.py --mode testing
@@ -354,6 +369,7 @@ python utils/file_manager/csv_helper.py \
 ```
 
 #### For Fast Iteration
+
 ```bash
 # Small sample with validation
 python utils/file_manager/csv_helper.py \
@@ -444,6 +460,7 @@ project/
 ## Support
 
 For issues or questions:
+
 - Check the validation output for specific error details
 - Review the [main README](../README.md) for architecture overview
 - Open an issue in the project repository
@@ -454,4 +471,4 @@ For issues or questions:
 - **v1.1**: Added sampling support
 - **v1.2**: Added graph integrity validation
 - **v1.3**: Added testing/production modes</content>
-<parameter name="filePath">d:\Coding\Projects\college\pmllm\docs\CLI_USAGE.md
+  <parameter name="filePath">d:\Coding\Projects\college\pmllm\docs\CLI_USAGE.md
