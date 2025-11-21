@@ -1,5 +1,5 @@
-from milvus_store import init_milvus
-from helper.embedder import embed
+from .milvus_store import init_milvus
+from .helper.embedder import embed
 
 
 def search(query, limit=5, return_raw=False):

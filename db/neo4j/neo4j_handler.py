@@ -1,7 +1,6 @@
 import os
 from neo4j import GraphDatabase
-from typing import Generator, Dict, Any, List
-
+from typing import Any, Dict, Generator, List
 
 
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
@@ -51,7 +50,7 @@ def stream_nodes(
     with driver.session() as session:
         while True:
             q = f"MATCH (n:{label}) RETURN n SKIP $skip LIMIT $limit"
-            result = session.run(q, skip=offset, limit=batch)
+            result = session.run(q, skip=offset, limit=batch)  # type: ignore[arg-type]
             rows = list(result)
             if not rows:
                 break
@@ -65,7 +64,7 @@ def fetch_all_nodes_for_labels(
     labels: List[str], batch: int = 1000
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Retrieve nodes for each label and return them grouped in a dict."""
-    out = {}
+    out: Dict[str, List[Dict[str, Any]]] = {}
     for lab in labels:
         out[lab] = []
         for node in stream_nodes(lab, batch=batch):

@@ -62,9 +62,12 @@ def run_bulk_import(
         # Prepend to PATH to ensure this java is found first
         env["PATH"] = str(java_home / "bin") + os.pathsep + env["PATH"]
 
+    using_docker = False
+
     if neo4j_bin_path:
-        neo4j_admin = str(neo4j_bin_path / "neo4j-admin.bat")
-        cmd = [neo4j_admin]
+        executable = "neo4j-admin.bat" if os.name == "nt" else "neo4j-admin"
+        neo4j_admin = neo4j_bin_path / executable
+        cmd = [str(neo4j_admin)]
     elif has_local_admin:
         cmd = ["neo4j-admin"]
     elif has_docker:
@@ -79,6 +82,11 @@ def run_bulk_import(
         print(
             f"Docker detected. Running import via container. Data will be written to: {data_mount}"
         )
+
+        data_mount = data_mount.resolve()
+        (data_mount / "databases").mkdir(parents=True, exist_ok=True)
+
+        using_docker = True
 
         cmd = [
             "docker",
@@ -98,17 +106,49 @@ def run_bulk_import(
     else:
         raise Neo4jImportError("Neither 'neo4j-admin' nor 'docker' found in PATH.")
 
+    def _resolve_local_data_dir() -> Path:
+        env_dir = os.getenv("NEO4J_DATA_DIR")
+        if env_dir:
+            base = Path(env_dir).expanduser().resolve()
+            if base.name != "databases":
+                base = base / "databases"
+            return base / db_name
+
+        neo4j_home = os.getenv("NEO4J_HOME")
+        if neo4j_home:
+            home_path = Path(neo4j_home).expanduser().resolve()
+            return home_path / "data" / "databases" / db_name
+
+        if neo4j_bin_path:
+            bin_root = neo4j_bin_path.resolve().parent.parent
+            return bin_root / "data" / "databases" / db_name
+
+        desktop_candidates = [
+            Path.home() / ".Neo4jDesktop2" / "Data" / "dbmss",
+            Path.home() / ".Neo4jDesktop" / "relate-data" / "dbmss",
+            Path.home() / "AppData" / "Local" / "Neo4j" / "Relate" / "Data" / "dbmss",
+        ]
+        for container in desktop_candidates:
+            if container.exists():
+                dbms_dirs = sorted(container.glob("dbms-*"))
+                for dbms_dir in dbms_dirs:
+                    data_candidate = dbms_dir / "data" / "databases" / db_name
+                    if data_candidate.parent.exists():
+                        return data_candidate
+
+        raise Neo4jImportError(
+            "Set --neo4j-bin-path or NEO4J_DATA_DIR to use legacy neo4j-admin import."
+        )
+
     if legacy_import:
         cmd.extend(["import"])
-        # For legacy import, --into specifies the database directory
-        # Assuming db_name is the directory name under data/databases
-        if has_docker:
-            cmd.append(f"--into=/data/{db_name}")
+        if using_docker:
+            into_path = f"/data/databases/{db_name}"
         else:
-            # For local, assume the data path is relative or absolute
-            # This might need adjustment based on Neo4j setup
-            data_dir = Path.home() / ".Neo4jDesktop2" / "Data" / "dbmss" / "dbms-11f3fb33-1c97-4d64-bb2c-ccd9cc578308" / "data" / "databases" / db_name
-            cmd.append(f"--into={data_dir}")
+            data_dir = _resolve_local_data_dir()
+            data_dir.parent.mkdir(parents=True, exist_ok=True)
+            into_path = str(data_dir)
+        cmd.append(f"--into={into_path}")
     else:
         cmd.extend(
             [

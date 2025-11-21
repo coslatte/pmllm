@@ -1,6 +1,6 @@
 from pathlib import Path
 import csv
-from typing import Iterable, Optional, Tuple
+from typing import Dict, Iterable, Optional, Tuple
 import tarfile
 import tempfile
 import sys
@@ -56,7 +56,7 @@ def validate_tabular(
     if delimiter is None:
         delimiter = detect_delimiter(path)
 
-    col_counts = {}
+    col_counts: Dict[int, int] = {}
     rows_sampled = 0
     with _open_text(path) as f:
         reader = csv.reader(f, delimiter=delimiter)
