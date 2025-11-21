@@ -224,17 +224,19 @@ def run_verification_queries(
     port: int = 7687,
 ) -> None:
     """Run simple Cypher-shell verification queries.
-    
+
     Args:
         user: Neo4j username (default: "neo4j")
         password: Neo4j password (required, no default for security)
         host: Neo4j host (default: "localhost")
         port: Neo4j Bolt port (default: 7687)
     """
-    
+
     if not password:
-        raise ValueError("Password is required for Neo4j verification queries. "
-                        "Set via --password argument or NEO4J_PASSWORD environment variable.")
+        raise ValueError(
+            "Password is required for Neo4j verification queries. "
+            "Set via --password argument or NEO4J_PASSWORD environment variable."
+        )
 
     import shutil
 

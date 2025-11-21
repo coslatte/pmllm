@@ -35,6 +35,7 @@ coverage.xml
 
 # Type checkers / caches
 .mypy_cache/
+.ruff_cache
 .dmypy.json
 .dmypy/
 .pyre/
@@ -78,7 +79,6 @@ Thumbs.db
 celerybeat-schedule
 
 # Neo4j
-neo4j/
 *.db/
 logs/
 import/
