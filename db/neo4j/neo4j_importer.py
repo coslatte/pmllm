@@ -182,6 +182,12 @@ def run_bulk_import(
     cmd.append(
         f"--nodes={get_path(headers_dir / 'area_header.csv', '/headers')},{get_path(labeled_dir / 'labeled_area.csv', '/labeled')}"
     )
+    cmd.append(
+        f"--nodes={get_path(headers_dir / 'release_group_header.csv', '/headers')},{get_path(labeled_dir / 'labeled_release_group.csv', '/labeled')}"
+    )
+    cmd.append(
+        f"--nodes={get_path(headers_dir / 'tag_header.csv', '/headers')},{get_path(labeled_dir / 'labeled_tag.csv', '/labeled')}"
+    )
 
     # Add relationships
     cmd.append(
@@ -189,6 +195,27 @@ def run_bulk_import(
     )
     cmd.append(
         f"--relationships={get_path(headers_dir / 'artist_release_rel_header.csv', '/headers')},{get_path(relationships_dir / 'artist_release_relationships.csv', '/relationships')}"
+    )
+    cmd.append(
+        f"--relationships={get_path(headers_dir / 'recording_work_rel_header.csv', '/headers')},{get_path(relationships_dir / 'recording_work_relationships.csv', '/relationships')}"
+    )
+    cmd.append(
+        f"--relationships={get_path(headers_dir / 'release_release_group_rel_header.csv', '/headers')},{get_path(relationships_dir / 'release_release_group_relationships.csv', '/relationships')}"
+    )
+    cmd.append(
+        f"--relationships={get_path(headers_dir / 'artist_area_rel_header.csv', '/headers')},{get_path(relationships_dir / 'artist_area_relationships.csv', '/relationships')}"
+    )
+    cmd.append(
+        f"--relationships={get_path(headers_dir / 'release_area_rel_header.csv', '/headers')},{get_path(relationships_dir / 'release_area_relationships.csv', '/relationships')}"
+    )
+    cmd.append(
+        f"--relationships={get_path(headers_dir / 'recording_tag_rel_header.csv', '/headers')},{get_path(relationships_dir / 'recording_tag_relationships.csv', '/relationships')}"
+    )
+    cmd.append(
+        f"--relationships={get_path(headers_dir / 'artist_tag_rel_header.csv', '/headers')},{get_path(relationships_dir / 'artist_tag_relationships.csv', '/relationships')}"
+    )
+    cmd.append(
+        f"--relationships={get_path(headers_dir / 'release_tag_rel_header.csv', '/headers')},{get_path(relationships_dir / 'release_tag_relationships.csv', '/relationships')}"
     )
 
     # neo4j-admin prefers 'TAB' for tab delimiter to avoid shell issues

@@ -35,12 +35,20 @@ NODE_HEADERS: Dict[str, str] = {
     "release_header.csv": "id:ID(Release),gid:string,name:string,artist_credit:INT,release_group:INT,comment:string,:LABEL",
     "work_header.csv": "id:ID(Work),gid:string,name:string,type:INT,comment:string,:LABEL",
     "area_header.csv": "id:ID(Area),gid:string,name:string,type:INT,:LABEL",
+    "release_group_header.csv": "id:ID(ReleaseGroup),gid:string,name:string,artist_credit:INT,type:INT,comment:string,:LABEL",
+    "tag_header.csv": "id:ID(Tag),name:string,:LABEL",
 }
 
 REL_HEADERS: Dict[str, str] = {
     "artist_recording_rel_header.csv": ":START_ID(Artist),:END_ID(Recording),position:INT,name:string,:TYPE",
     "artist_release_rel_header.csv": ":START_ID(Artist),:END_ID(Release),position:INT,name:string,:TYPE",
     "recording_work_rel_header.csv": ":START_ID(Recording),:END_ID(Work),:TYPE",
+    "release_release_group_rel_header.csv": ":START_ID(Release),:END_ID(ReleaseGroup),:TYPE",
+    "artist_area_rel_header.csv": ":START_ID(Artist),:END_ID(Area),:TYPE",
+    "release_area_rel_header.csv": ":START_ID(Release),:END_ID(Area),:TYPE",
+    "recording_tag_rel_header.csv": ":START_ID(Recording),:END_ID(Tag),:TYPE",
+    "artist_tag_rel_header.csv": ":START_ID(Artist),:END_ID(Tag),:TYPE",
+    "release_tag_rel_header.csv": ":START_ID(Release),:END_ID(Tag),:TYPE",
 }
 
 FILES_TO_LABEL: Dict[str, str] = {
@@ -49,6 +57,8 @@ FILES_TO_LABEL: Dict[str, str] = {
     "release": "Release",
     "work": "Work",
     "area": "Area",
+    "release_group": "ReleaseGroup",
+    "tag": "Tag",
 }
 
 # Mapping of input columns (0-based index) to output columns for each file type
@@ -59,6 +69,8 @@ COLUMN_MAPPINGS: Dict[str, list[int]] = {
     "release": [0, 1, 2, 3, 4, 10],
     "work": [0, 1, 2, 3, 4],
     "area": [0, 1, 2, 3],
+    "release_group": [0, 1, 2, 3, 4, 5],  # id, gid, name, artist_credit, type, comment
+    "tag": [0, 1],  # id, name
 }
 
 
@@ -167,6 +179,249 @@ def prepare_artist_credit_relationships(
     print(f"✅ Relationships generated in {relationships_dir}")
 
 
+def prepare_recording_work_relationships(
+    mbdump_dir: Path,
+    relationships_dir: Path,
+    delimiter: str = "\t",
+    encoding: str = "utf-8",
+    kept_recording_ids: Optional[Set[str]] = None,
+    kept_work_ids: Optional[Set[str]] = None,
+) -> None:
+    """Prepare Recording to Work relationships from l_recording_work table."""
+
+    mbdump_dir = mbdump_dir.resolve()
+    relationships_dir = relationships_dir.resolve()
+    relationships_dir.mkdir(parents=True, exist_ok=True)
+
+    recording_work_path = mbdump_dir / "l_recording_work"
+
+    if not recording_work_path.exists():
+        print(f"⚠️  Recording-Work relationships file not found: {recording_work_path}")
+        return
+
+    recording_work_relationships_path = relationships_dir / "recording_work_relationships.csv"
+
+    with (
+        recording_work_path.open("r", encoding=encoding) as f,
+        recording_work_relationships_path.open("w", encoding=encoding, newline="") as out,
+    ):
+        writer = csv.writer(out, delimiter=delimiter)
+        reader = csv.reader(f, delimiter=delimiter, quoting=csv.QUOTE_NONE)
+
+        for row in reader:
+            if len(row) >= 2:
+                # Clean \N values
+                row = ["" if field == "\\N" else field for field in row]
+                recording_id, work_id = row[0], row[1]
+
+                if (kept_recording_ids is None or recording_id in kept_recording_ids) and \
+                   (kept_work_ids is None or work_id in kept_work_ids):
+                    writer.writerow([recording_id, work_id, "BELONGS_TO"])
+
+    print(f"✅ Recording-Work relationships generated in {relationships_dir}")
+
+
+def prepare_release_release_group_relationships(
+    mbdump_dir: Path,
+    relationships_dir: Path,
+    delimiter: str = "\t",
+    encoding: str = "utf-8",
+    kept_release_ids: Optional[Set[str]] = None,
+    kept_release_group_ids: Optional[Set[str]] = None,
+) -> None:
+    """Prepare Release to Release Group relationships from release table."""
+
+    mbdump_dir = mbdump_dir.resolve()
+    relationships_dir = relationships_dir.resolve()
+    relationships_dir.mkdir(parents=True, exist_ok=True)
+
+    release_path = mbdump_dir / "release"
+
+    if not release_path.exists():
+        print(f"⚠️  Release file not found: {release_path}")
+        return
+
+    release_release_group_relationships_path = relationships_dir / "release_release_group_relationships.csv"
+
+    with (
+        release_path.open("r", encoding=encoding) as f,
+        release_release_group_relationships_path.open("w", encoding=encoding, newline="") as out,
+    ):
+        writer = csv.writer(out, delimiter=delimiter)
+        reader = csv.reader(f, delimiter=delimiter, quoting=csv.QUOTE_NONE)
+
+        for row in reader:
+            if len(row) >= 5:
+                # Clean \N values
+                row = ["" if field == "\\N" else field for field in row]
+                release_id, release_group_id = row[0], row[4]
+
+                if release_group_id and \
+                   (kept_release_ids is None or release_id in kept_release_ids) and \
+                   (kept_release_group_ids is None or release_group_id in kept_release_group_ids):
+                    writer.writerow([release_id, release_group_id, "BELONGS_TO"])
+
+    print(f"✅ Release-ReleaseGroup relationships generated in {relationships_dir}")
+
+
+def prepare_area_relationships(
+    mbdump_dir: Path,
+    relationships_dir: Path,
+    delimiter: str = "\t",
+    encoding: str = "utf-8",
+    kept_artist_ids: Optional[Set[str]] = None,
+    kept_release_ids: Optional[Set[str]] = None,
+    kept_area_ids: Optional[Set[str]] = None,
+) -> None:
+    """Prepare Artist and Release to Area relationships."""
+
+    mbdump_dir = mbdump_dir.resolve()
+    relationships_dir = relationships_dir.resolve()
+    relationships_dir.mkdir(parents=True, exist_ok=True)
+
+    artist_path = mbdump_dir / "artist"
+    release_path = mbdump_dir / "release"
+
+    artist_area_relationships_path = relationships_dir / "artist_area_relationships.csv"
+    release_area_relationships_path = relationships_dir / "release_area_relationships.csv"
+
+    # Artist to Area relationships
+    if artist_path.exists():
+        with (
+            artist_path.open("r", encoding=encoding) as f,
+            artist_area_relationships_path.open("w", encoding=encoding, newline="") as out,
+        ):
+            writer = csv.writer(out, delimiter=delimiter)
+            reader = csv.reader(f, delimiter=delimiter, quoting=csv.QUOTE_NONE)
+
+            for row in reader:
+                if len(row) >= 12:
+                    # Clean \N values
+                    row = ["" if field == "\\N" else field for field in row]
+                    artist_id, area_id = row[0], row[10]  # area is at index 10 in artist table
+
+                    if area_id and \
+                       (kept_artist_ids is None or artist_id in kept_artist_ids) and \
+                       (kept_area_ids is None or area_id in kept_area_ids):
+                        writer.writerow([artist_id, area_id, "FROM_AREA"])
+    else:
+        print(f"⚠️  Artist file not found: {artist_path}")
+
+    # Release to Area relationships
+    if release_path.exists():
+        with (
+            release_path.open("r", encoding=encoding) as f,
+            release_area_relationships_path.open("w", encoding=encoding, newline="") as out,
+        ):
+            writer = csv.writer(out, delimiter=delimiter)
+            reader = csv.reader(f, delimiter=delimiter, quoting=csv.QUOTE_NONE)
+
+            for row in reader:
+                if len(row) >= 11:
+                    # Clean \N values
+                    row = ["" if field == "\\N" else field for field in row]
+                    release_id, area_id = row[0], row[10]  # area is at index 10 in release table
+
+                    if area_id and \
+                       (kept_release_ids is None or release_id in kept_release_ids) and \
+                       (kept_area_ids is None or area_id in kept_area_ids):
+                        writer.writerow([release_id, area_id, "RELEASED_IN"])
+    else:
+        print(f"⚠️  Release file not found: {release_path}")
+
+    print(f"✅ Area relationships generated in {relationships_dir}")
+
+
+def prepare_tag_relationships(
+    mbdump_dir: Path,
+    relationships_dir: Path,
+    delimiter: str = "\t",
+    encoding: str = "utf-8",
+    kept_artist_ids: Optional[Set[str]] = None,
+    kept_recording_ids: Optional[Set[str]] = None,
+    kept_release_ids: Optional[Set[str]] = None,
+    kept_tag_ids: Optional[Set[str]] = None,
+) -> None:
+    """Prepare Artist, Recording, and Release to Tag relationships."""
+
+    mbdump_dir = mbdump_dir.resolve()
+    relationships_dir = relationships_dir.resolve()
+    relationships_dir.mkdir(parents=True, exist_ok=True)
+
+    artist_tag_path = mbdump_dir / "artist_tag"
+    recording_tag_path = mbdump_dir / "recording_tag"
+    release_tag_path = mbdump_dir / "release_tag"
+
+    artist_tag_relationships_path = relationships_dir / "artist_tag_relationships.csv"
+    recording_tag_relationships_path = relationships_dir / "recording_tag_relationships.csv"
+    release_tag_relationships_path = relationships_dir / "release_tag_relationships.csv"
+
+    # Artist to Tag relationships
+    if artist_tag_path.exists():
+        with (
+            artist_tag_path.open("r", encoding=encoding) as f,
+            artist_tag_relationships_path.open("w", encoding=encoding, newline="") as out,
+        ):
+            writer = csv.writer(out, delimiter=delimiter)
+            reader = csv.reader(f, delimiter=delimiter, quoting=csv.QUOTE_NONE)
+
+            for row in reader:
+                if len(row) >= 2:
+                    # Clean \N values
+                    row = ["" if field == "\\N" else field for field in row]
+                    artist_id, tag_id = row[0], row[1]
+
+                    if (kept_artist_ids is None or artist_id in kept_artist_ids) and \
+                       (kept_tag_ids is None or tag_id in kept_tag_ids):
+                        writer.writerow([artist_id, tag_id, "HAS_TAG"])
+    else:
+        print(f"⚠️  Artist-Tag file not found: {artist_tag_path}")
+
+    # Recording to Tag relationships
+    if recording_tag_path.exists():
+        with (
+            recording_tag_path.open("r", encoding=encoding) as f,
+            recording_tag_relationships_path.open("w", encoding=encoding, newline="") as out,
+        ):
+            writer = csv.writer(out, delimiter=delimiter)
+            reader = csv.reader(f, delimiter=delimiter, quoting=csv.QUOTE_NONE)
+
+            for row in reader:
+                if len(row) >= 2:
+                    # Clean \N values
+                    row = ["" if field == "\\N" else field for field in row]
+                    recording_id, tag_id = row[0], row[1]
+
+                    if (kept_recording_ids is None or recording_id in kept_recording_ids) and \
+                       (kept_tag_ids is None or tag_id in kept_tag_ids):
+                        writer.writerow([recording_id, tag_id, "HAS_TAG"])
+    else:
+        print(f"⚠️  Recording-Tag file not found: {recording_tag_path}")
+
+    # Release to Tag relationships
+    if release_tag_path.exists():
+        with (
+            release_tag_path.open("r", encoding=encoding) as f,
+            release_tag_relationships_path.open("w", encoding=encoding, newline="") as out,
+        ):
+            writer = csv.writer(out, delimiter=delimiter)
+            reader = csv.reader(f, delimiter=delimiter, quoting=csv.QUOTE_NONE)
+
+            for row in reader:
+                if len(row) >= 2:
+                    # Clean \N values
+                    row = ["" if field == "\\N" else field for field in row]
+                    release_id, tag_id = row[0], row[1]
+
+                    if (kept_release_ids is None or release_id in kept_release_ids) and \
+                       (kept_tag_ids is None or tag_id in kept_tag_ids):
+                        writer.writerow([release_id, tag_id, "HAS_TAG"])
+    else:
+        print(f"⚠️  Release-Tag file not found: {release_tag_path}")
+
+    print(f"✅ Tag relationships generated in {relationships_dir}")
+
+
 def add_labels_to_data(
     mbdump_dir: Path,
     labeled_dir: Path,
@@ -268,6 +523,8 @@ def run_pipeline(
     if not skip_relationships:
         if kept_node_ids is None and sample_fraction < 0.9999:
             raise ValueError("Relationship sampling requires labeled data to identify kept node IDs.")
+        
+        # Generate all relationship types
         prepare_artist_credit_relationships(
             mbdump_dir=mbdump_dir,
             relationships_dir=relationships_dir,
@@ -276,6 +533,45 @@ def run_pipeline(
             kept_artist_ids=kept_node_ids.get("Artist") if kept_node_ids else None,
             kept_recording_ids=kept_node_ids.get("Recording") if kept_node_ids else None,
             kept_release_ids=kept_node_ids.get("Release") if kept_node_ids else None,
+        )
+        
+        prepare_recording_work_relationships(
+            mbdump_dir=mbdump_dir,
+            relationships_dir=relationships_dir,
+            delimiter=delimiter,
+            encoding=encoding,
+            kept_recording_ids=kept_node_ids.get("Recording") if kept_node_ids else None,
+            kept_work_ids=kept_node_ids.get("Work") if kept_node_ids else None,
+        )
+        
+        prepare_release_release_group_relationships(
+            mbdump_dir=mbdump_dir,
+            relationships_dir=relationships_dir,
+            delimiter=delimiter,
+            encoding=encoding,
+            kept_release_ids=kept_node_ids.get("Release") if kept_node_ids else None,
+            kept_release_group_ids=kept_node_ids.get("ReleaseGroup") if kept_node_ids else None,
+        )
+        
+        prepare_area_relationships(
+            mbdump_dir=mbdump_dir,
+            relationships_dir=relationships_dir,
+            delimiter=delimiter,
+            encoding=encoding,
+            kept_artist_ids=kept_node_ids.get("Artist") if kept_node_ids else None,
+            kept_release_ids=kept_node_ids.get("Release") if kept_node_ids else None,
+            kept_area_ids=kept_node_ids.get("Area") if kept_node_ids else None,
+        )
+        
+        prepare_tag_relationships(
+            mbdump_dir=mbdump_dir,
+            relationships_dir=relationships_dir,
+            delimiter=delimiter,
+            encoding=encoding,
+            kept_artist_ids=kept_node_ids.get("Artist") if kept_node_ids else None,
+            kept_recording_ids=kept_node_ids.get("Recording") if kept_node_ids else None,
+            kept_release_ids=kept_node_ids.get("Release") if kept_node_ids else None,
+            kept_tag_ids=kept_node_ids.get("Tag") if kept_node_ids else None,
         )
 
 
