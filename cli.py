@@ -7,10 +7,20 @@ from db.neo4j.neo4j_importer import run_bulk_import, run_verification_queries
 
 
 class CLI:
-    """Command-line interface for tabular dataset tools."""
+    """Command-line interface for tabular data conversion and Neo4j import tools."""
 
     @staticmethod
     def _handle_convert(args: argparse.Namespace) -> None:
+        """
+        Convert TSV files to CSV format.
+
+        This command processes all TSV files found in the specified directory,
+        including those inside tar archives. It's designed to handle large
+        datasets like MusicBrainz dumps but works with any properly formatted
+        TSV files.
+
+        Note: MusicBrainz database exports use TSV format extensively.
+        """
         src = Path(args.path)
         if not src.is_dir():
             raise ValueError(f"Path must be a directory: {src}")
@@ -92,13 +102,23 @@ class CLI:
     def _build_parser() -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser(
             prog="pmllm-cli",
-            description="Tools for working with tabular datasets",
+            description="""
+            Command-line tools for tabular data processing and Neo4j import.
+            
+            This tool provides utilities for:
+            - Converting TSV files to CSV (including tar extraction)
+            - Preparing MusicBrainz data for Neo4j import
+            - Running Neo4j bulk imports
+            
+            Note: MusicBrainz database dumps use TSV format extensively.
+            The conversion tools work with any properly formatted TSV files.
+            """,
         )
         subparsers = parser.add_subparsers(dest="command")
 
         convert_parser = subparsers.add_parser(
             "convert",
-            help="Convert TSV files in a directory to CSV",
+            help="Convert TSV files to CSV format (extracts tars, processes all TSVs found)",
         )
         convert_parser.add_argument(
             "path",

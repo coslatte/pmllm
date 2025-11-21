@@ -1,3 +1,15 @@
+"""
+Prepare MusicBrainz data for Neo4j import.
+
+This module contains utilities specifically designed for processing MusicBrainz
+database dumps, which use TSV (Tab-Separated Values) format extensively.
+However, the core conversion functions can work with any properly formatted
+TSV files following similar schemas.
+
+MusicBrainz is a comprehensive music metadata database that exports its data
+in TSV format for bulk processing and analysis.
+"""
+
 import argparse
 import csv
 import random

@@ -5,11 +5,35 @@ from utils.file_manager.reader import ensure_tsv, convert_to_csv
 
 
 class Converter:
-    """Handles conversion of TSV files to CSV, including tar extraction."""
+    """
+    Handles conversion of TSV files to CSV, including tar extraction.
+
+    Note: MusicBrainz database dumps use TSV (Tab-Separated Values) format
+    for their exported data files. This converter is designed to handle
+    such dumps but works with any properly formatted TSV files.
+    """
 
     @staticmethod
     def convert_tsvs_in_dir(src_dir: Path, out_dir: Path) -> int:
-        """Convert all files in src_dir: extract tars and convert TSVs to .csv in out_dir."""
+        """
+        Convert all TSV files in src_dir to CSV format in out_dir.
+
+        This function recursively processes all files in the source directory:
+        - Extracts any .tar/.tar.gz files found
+        - Converts all .tsv files to .csv format
+        - Skips non-TSV files gracefully
+
+        Note: MusicBrainz uses TSV format extensively in their database dumps
+        and exports. This converter is optimized for such large-scale data
+        processing but works with any valid TSV files.
+
+        Args:
+            src_dir: Source directory containing TSV files and/or tar archives
+            out_dir: Output directory for generated CSV files
+
+        Returns:
+            Number of files successfully converted
+        """
         all_files = [f for f in src_dir.rglob("*") if f.is_file()]
 
         print(f"Total files in {src_dir}: {len(all_files)}")
