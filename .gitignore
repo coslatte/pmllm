@@ -45,7 +45,8 @@ coverage.xml
 
 # Environment / secret files
 .env
-.env.*
+.env.local
+.env.*.local
 local_settings.py
 
 # Django

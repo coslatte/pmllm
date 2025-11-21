@@ -3,6 +3,16 @@ from .helper.embedder import embed
 
 
 def search(query, limit=5, return_raw=False):
+    """Search the Milvus vector database for similar documents.
+    
+    Args:
+        query: The search query text
+        limit: Maximum number of results to return (default: 5)
+        return_raw: If True, return raw results list instead of printing (default: False)
+        
+    Returns:
+        List of hit dictionaries containing text, label, and score
+    """
     col = init_milvus()
     qvec = embed(query)
 

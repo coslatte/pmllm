@@ -35,14 +35,31 @@ Notes on the MusicBrainz fragment:
 - Our ingestion pipeline will include scripts to read the PostgreSQL dump and Neo4j exports, convert relevant rows/graphs to text passages and KG nodes, create embeddings, and upsert them into Milvus and the KG store.
 - Do not commit database dumps or credentials to the repo. Document connection and import steps in `scripts/README.md` or `docs/DEPLOY.md` and load secrets via environment variables or a secure vault.
 
-## Deliverables (planned)
+## Current Implementation
 
-- `red_social_llm.py` — orchestration & RAG logic (retriever + prompt construction + Qwen 3 calls + post-processing)
-- `pi_server.py` — REST API server exposing endpoints
-- `data_processor.py` — ETL for datasets, embeddings creation, and KG ingestion
-- `evaluator.py` — evaluation and monitoring code (retrieval and generation metrics)
-- `plan/PLAN.md` — structured plan (machine- and human-friendly)
-- `requirements.txt` — environment dependencies and notes about client libraries to call Qwen 3 and vector DB
+### Implemented Components
+
+- `cli.py` / `main.py` — Command-line interface for dataset conversion and Neo4j import
+- `db/vector/` — Vector database integration with Milvus
+  - `milvus_store.py` — Milvus connection and collection management
+  - `vector_query.py` — Vector similarity search
+  - `rag_pipeline.py` — RAG orchestration with Qwen 3 LLM
+  - `build_vector_db.py` — Populate vector DB from Neo4j nodes
+- `db/neo4j/` — Neo4j graph database integration
+  - `neo4j_handler.py` — Query and retrieve nodes from Neo4j
+  - `neo4j_importer.py` — Bulk import data into Neo4j
+- `utils/file_manager/` — Data processing utilities
+  - `converter.py` — TSV to CSV conversion
+  - `reader.py` — File reading and validation
+  - `csv_helper.py` — MusicBrainz data preparation for Neo4j
+- `pyproject.toml` / `requirements.txt` — Python dependencies
+- `docker-compose.yml` — Milvus service configuration
+
+### Planned Components
+
+- REST API server exposing endpoints (`/recommend`, `/connect`, `/ask`)
+- Evaluation and monitoring code (retrieval and generation metrics)
+- Additional data processors for specific use cases
 
 ## Documentation
 
@@ -63,27 +80,93 @@ Additional notes:
 
 Note: the project now uses a RAG approach with Qwen 3. Do not add or expect fine-tuning scripts or fine-tuned model artifacts in the repo unless a future decision reintroduces fine-tuning.
 
-## Development / Next steps (suggested)
+## Development / Installation
 
-1. Create a minimal `requirements.txt` and Python virtual environment.
-2. Add skeleton files for the deliverables above (stubs for API, processor, evaluator) and include a `scripts/` helper to build embeddings and populate the vector store.
-3. Prepare a small, representative dataset (courses, topics, and a few QA pairs) and a test harness for stage-1 acceptance tests. Add retrieval tests (can the system find the passage that contains the answer?) and generation tests (does Qwen 3 produce the expected format when given retrieved context?).
-4. Select an embeddings provider and a vector DB. Document API keys and configuration expectations in `README.md` (do not commit secrets).
+### Prerequisites
 
-Example (PowerShell) commands to start a local dev env and run ingestion (replace placeholders):
+- Python 3.10 or higher
+- Docker and Docker Compose (for Milvus vector database)
+- Neo4j (via Neo4j Desktop or Docker)
+- Java (for Neo4j bulk import)
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-# run ingestion script that creates embeddings and populates the vector DB
-python scripts/ingest.py --data data/ --vector-db local_faiss
+### Setup Instructions
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/coslatte/pmllm.git
+   cd pmllm
+   ```
+
+2. **Create and activate a Python virtual environment:**
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   ```
+
+3. **Install Python dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   # Or using the project file:
+   pip install -e .
+   ```
+
+4. **Set up environment variables:**
+   Create a `.env` file or export these variables:
+   ```bash
+   # Neo4j connection
+   export NEO4J_URI="bolt://localhost:7687"
+   export NEO4J_USER="neo4j"
+   export NEO4J_PASSWORD="your_password"
+   
+   # Milvus connection (optional, defaults shown)
+   export MILVUS_HOST="127.0.0.1"
+   export MILVUS_PORT="19530"
+   
+   # LLM API endpoint (for Qwen via LM Studio)
+   export QWEN_GENERATE_URL="http://localhost:1234/v1/chat/completions"
+   export QWEN_GENERATE_MODEL="qwen-1.7b"
+   
+   # Embedding model (optional)
+   export EMBEDDING_MODEL_PATH="Alibaba-NLP/gte-Qwen2-1.5B-instruct"
+   ```
+
+5. **Start Milvus services:**
+   ```bash
+   docker-compose up -d
+   ```
+
+6. **Run the CLI to verify installation:**
+   ```bash
+   python main.py --help
+   # Or directly:
+   python cli.py --help
+   ```
+
+### Usage Examples
+
+**Convert TSV files to CSV:**
+```bash
+python cli.py convert /path/to/tsv/files -o output_csv
 ```
 
-Example (PowerShell) commands to start a local dev env:
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+**Prepare MusicBrainz data for Neo4j:**
+```bash
+python cli.py prepare-neo4j \
+  --mbdump mbdump \
+  --headers-dir neo4j_headers \
+  --labeled-dir labeled \
+  --relationships-dir relationships \
+  --sample-percent 10.0  # Use 10% sample for testing
 ```
+
+**Import data into Neo4j:**
+```bash
+python cli.py import-neo4j \
+  --headers-dir neo4j_headers \
+  --labeled-dir labeled \
+  --relationships-dir relationships \
+  --db-name musicbrainz.db \
+  --verify
+```
+
+See `plan/PLAN.md` for the structured project plan and task contracts.

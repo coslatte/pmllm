@@ -1,5 +1,10 @@
 import os
+<<<<<<< HEAD
 from typing import Any, List
+=======
+from typing import Sequence
+import sys
+>>>>>>> 4c8ca2a7bcbb02c697fd2715883a66dd54803212
 
 # We will use sentence-transformers locally to avoid LM Studio memory conflicts
 # and to speed up batch processing.
@@ -15,14 +20,22 @@ MODEL_NAME = os.getenv("EMBEDDING_MODEL_PATH", "Alibaba-NLP/gte-Qwen2-1.5B-instr
 
 # Load model once (global)
 print(f"Loading embedding model: {MODEL_NAME}...")
+_model = None
 try:
     _model = SentenceTransformer(MODEL_NAME, trust_remote_code=True)
+    print(f"Successfully loaded model: {MODEL_NAME}")
 except Exception as e:
-    print(f"Error loading model {MODEL_NAME}: {e}")
-    print("Falling back to 'all-MiniLM-L6-v2' for testing purposes.")
-    _model = SentenceTransformer("all-MiniLM-L6-v2")
+    print(f"Error loading model {MODEL_NAME}: {e}", file=sys.stderr)
+    print("Falling back to 'all-MiniLM-L6-v2' for testing purposes.", file=sys.stderr)
+    try:
+        _model = SentenceTransformer("all-MiniLM-L6-v2")
+        print("Successfully loaded fallback model 'all-MiniLM-L6-v2'")
+    except Exception as fallback_error:
+        print(f"CRITICAL: Failed to load fallback model: {fallback_error}", file=sys.stderr)
+        raise
 
 
+<<<<<<< HEAD
 def embed(text: str) -> List[float]:
     """Return the embedding generated locally by sentence-transformers."""
     vector: Any = _model.encode(text, normalize_embeddings=True)
@@ -35,3 +48,21 @@ def embed(text: str) -> List[float]:
 
     # Fallback for unexpected types (e.g., numpy array without tolist)
     return [float(v) for v in vector]  # type: ignore[call-arg]
+=======
+def embed(text: str) -> Sequence[float]:
+    """Return the embedding generated locally by sentence-transformers.
+    
+    Args:
+        text: The text to embed
+        
+    Returns:
+        A list of floats representing the embedding vector
+        
+    Raises:
+        RuntimeError: If the model failed to load
+    """
+    if _model is None:
+        raise RuntimeError("Embedding model failed to load. Cannot generate embeddings.")
+    # normalize_embeddings=True is usually good for cosine similarity
+    return _model.encode(text, normalize_embeddings=True).tolist()
+>>>>>>> 4c8ca2a7bcbb02c697fd2715883a66dd54803212

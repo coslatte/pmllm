@@ -73,10 +73,16 @@ class CLI:
         print("Neo4j bulk import completed.")
 
         if args.verify:
+            import os
+            password = args.password or os.getenv("NEO4J_PASSWORD")
+            if not password:
+                print("Warning: No password provided. Set NEO4J_PASSWORD environment variable or use --password")
+                return
+            
             print("Running verification Cypher queries...")
             run_verification_queries(
                 user=args.user,
-                password=args.password,
+                password=password,
                 host=args.host,
                 port=args.port,
             )
@@ -225,8 +231,8 @@ class CLI:
         )
         import_parser.add_argument(
             "--password",
-            default="password",
-            help="Neo4j password for verification queries",
+            default=None,
+            help="Neo4j password for verification queries (use environment variable NEO4J_PASSWORD or pass via CLI)",
         )
         import_parser.add_argument(
             "--host",

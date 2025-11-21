@@ -145,10 +145,22 @@ def run_bulk_import(
         if using_docker:
             into_path = f"/data/databases/{db_name}"
         else:
+<<<<<<< HEAD
             data_dir = _resolve_local_data_dir()
             data_dir.parent.mkdir(parents=True, exist_ok=True)
             into_path = str(data_dir)
         cmd.append(f"--into={into_path}")
+=======
+            # For local, use environment variable or current directory
+            neo4j_data_dir = os.getenv("NEO4J_DATA_DIR")
+            if neo4j_data_dir:
+                data_dir = Path(neo4j_data_dir) / "databases" / db_name
+            else:
+                # Default to local data directory
+                data_dir = Path.cwd() / "data" / "neo4j" / "data" / "databases" / db_name
+            data_dir.parent.mkdir(parents=True, exist_ok=True)
+            cmd.append(f"--into={data_dir}")
+>>>>>>> 4c8ca2a7bcbb02c697fd2715883a66dd54803212
     else:
         cmd.extend(
             [
@@ -219,11 +231,22 @@ def run_bulk_import(
 
 def run_verification_queries(
     user: str = "neo4j",
-    password: str = "password",
+    password: Optional[str] = None,
     host: str = "localhost",
     port: int = 7687,
 ) -> None:
-    """Run simple Cypher-shell verification queries."""
+    """Run simple Cypher-shell verification queries.
+    
+    Args:
+        user: Neo4j username (default: "neo4j")
+        password: Neo4j password (required, no default for security)
+        host: Neo4j host (default: "localhost")
+        port: Neo4j Bolt port (default: 7687)
+    """
+    
+    if not password:
+        raise ValueError("Password is required for Neo4j verification queries. "
+                        "Set via --password argument or NEO4J_PASSWORD environment variable.")
 
     import shutil
 
