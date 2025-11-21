@@ -629,6 +629,18 @@ def parse_args(argv=None):
         action="store_true",
         help="Skip relationship CSV generation",
     )
+    parser.add_argument(
+        "--sample-percent",
+        type=float,
+        default=1.0,
+        help="Sample percentage for data reduction (0.0-1.0, default: 1.0 = 100%%)",
+    )
+    parser.add_argument(
+        "--sample-seed",
+        type=int,
+        default=None,
+        help="Random seed for reproducible sampling (default: None)",
+    )
     return parser.parse_args(argv)
 
 
@@ -647,6 +659,8 @@ def main(argv=None) -> None:
         skip_headers=args.skip_headers,
         skip_labels=args.skip_labels,
         skip_relationships=args.skip_relationships,
+        sample_fraction=args.sample_percent,
+        sample_seed=args.sample_seed,
     )
 
     print("Preparation completed!")
