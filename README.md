@@ -97,9 +97,10 @@ Notes on the MusicBrainz fragment:
 
 ## Documentation
 
-- `docs/CHANGELOG.md` — Log of all changes made to the project, especially by agents.
-- `plan/PLAN.md` — Structured project plan.
-- `plan/original_plan.md` — Original plan with annotations.
+- `docs/CLI_USAGE.md` — Comprehensive CLI usage guide with examples, sampling strategies, and validation features
+- `docs/CHANGELOG.md` — Log of all changes made to the project, especially by agents
+- `plan/PLAN.md` — Structured project plan
+- `plan/original_plan.md` — Original plan with annotations
 
 Additional notes:
 
@@ -203,4 +204,4 @@ python cli.py import-neo4j \
   --verify
 ```
 
-See `plan/PLAN.md` for the structured project plan and task contracts.
+See `docs/CLI_USAGE.md` for comprehensive CLI documentation including sampling modes, validation features, and advanced usage examples.
