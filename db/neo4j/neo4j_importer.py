@@ -166,57 +166,71 @@ def run_bulk_import(
             return str(local_path)
         return f"{mount_point}/{local_path.name}"
 
-    # Add nodes
-    cmd.append(
-        f"--nodes={get_path(headers_dir / 'artist_header.csv', '/headers')},{get_path(labeled_dir / 'labeled_artist.csv', '/labeled')}"
-    )
-    cmd.append(
-        f"--nodes={get_path(headers_dir / 'recording_header.csv', '/headers')},{get_path(labeled_dir / 'labeled_recording.csv', '/labeled')}"
-    )
-    cmd.append(
-        f"--nodes={get_path(headers_dir / 'release_header.csv', '/headers')},{get_path(labeled_dir / 'labeled_release.csv', '/labeled')}"
-    )
-    cmd.append(
-        f"--nodes={get_path(headers_dir / 'work_header.csv', '/headers')},{get_path(labeled_dir / 'labeled_work.csv', '/labeled')}"
-    )
-    cmd.append(
-        f"--nodes={get_path(headers_dir / 'area_header.csv', '/headers')},{get_path(labeled_dir / 'labeled_area.csv', '/labeled')}"
-    )
-    cmd.append(
-        f"--nodes={get_path(headers_dir / 'release_group_header.csv', '/headers')},{get_path(labeled_dir / 'labeled_release_group.csv', '/labeled')}"
-    )
-    cmd.append(
-        f"--nodes={get_path(headers_dir / 'tag_header.csv', '/headers')},{get_path(labeled_dir / 'labeled_tag.csv', '/labeled')}"
-    )
+    # Add nodes - only if files exist
+    node_files = [
+        (headers_dir / "artist_header.csv", labeled_dir / "labeled_artist.csv"),
+        (headers_dir / "recording_header.csv", labeled_dir / "labeled_recording.csv"),
+        (headers_dir / "release_header.csv", labeled_dir / "labeled_release.csv"),
+        (headers_dir / "work_header.csv", labeled_dir / "labeled_work.csv"),
+        (headers_dir / "area_header.csv", labeled_dir / "labeled_area.csv"),
+        (
+            headers_dir / "release_group_header.csv",
+            labeled_dir / "labeled_release_group.csv",
+        ),
+        (headers_dir / "tag_header.csv", labeled_dir / "labeled_tag.csv"),
+    ]
 
-    # Add relationships
-    cmd.append(
-        f"--relationships={get_path(headers_dir / 'artist_recording_rel_header.csv', '/headers')},{get_path(relationships_dir / 'artist_recording_relationships.csv', '/relationships')}"
-    )
-    cmd.append(
-        f"--relationships={get_path(headers_dir / 'artist_release_rel_header.csv', '/headers')},{get_path(relationships_dir / 'artist_release_relationships.csv', '/relationships')}"
-    )
-    cmd.append(
-        f"--relationships={get_path(headers_dir / 'recording_work_rel_header.csv', '/headers')},{get_path(relationships_dir / 'recording_work_relationships.csv', '/relationships')}"
-    )
-    cmd.append(
-        f"--relationships={get_path(headers_dir / 'release_release_group_rel_header.csv', '/headers')},{get_path(relationships_dir / 'release_release_group_relationships.csv', '/relationships')}"
-    )
-    cmd.append(
-        f"--relationships={get_path(headers_dir / 'artist_area_rel_header.csv', '/headers')},{get_path(relationships_dir / 'artist_area_relationships.csv', '/relationships')}"
-    )
-    cmd.append(
-        f"--relationships={get_path(headers_dir / 'release_area_rel_header.csv', '/headers')},{get_path(relationships_dir / 'release_area_relationships.csv', '/relationships')}"
-    )
-    cmd.append(
-        f"--relationships={get_path(headers_dir / 'recording_tag_rel_header.csv', '/headers')},{get_path(relationships_dir / 'recording_tag_relationships.csv', '/relationships')}"
-    )
-    cmd.append(
-        f"--relationships={get_path(headers_dir / 'artist_tag_rel_header.csv', '/headers')},{get_path(relationships_dir / 'artist_tag_relationships.csv', '/relationships')}"
-    )
-    cmd.append(
-        f"--relationships={get_path(headers_dir / 'release_tag_rel_header.csv', '/headers')},{get_path(relationships_dir / 'release_tag_relationships.csv', '/relationships')}"
-    )
+    for header_file, data_file in node_files:
+        if header_file.exists() and data_file.exists():
+            cmd.append(
+                f"--nodes={get_path(header_file, '/headers')},{get_path(data_file, '/labeled')}"
+            )
+
+    # Add relationships - only if files exist
+    relationship_files = [
+        (
+            headers_dir / "artist_recording_rel_header.csv",
+            relationships_dir / "artist_recording_relationships.csv",
+        ),
+        (
+            headers_dir / "artist_release_rel_header.csv",
+            relationships_dir / "artist_release_relationships.csv",
+        ),
+        (
+            headers_dir / "recording_work_rel_header.csv",
+            relationships_dir / "recording_work_relationships.csv",
+        ),
+        (
+            headers_dir / "release_release_group_rel_header.csv",
+            relationships_dir / "release_release_group_relationships.csv",
+        ),
+        (
+            headers_dir / "artist_area_rel_header.csv",
+            relationships_dir / "artist_area_relationships.csv",
+        ),
+        (
+            headers_dir / "release_area_rel_header.csv",
+            relationships_dir / "release_area_relationships.csv",
+        ),
+        (
+            headers_dir / "recording_tag_rel_header.csv",
+            relationships_dir / "recording_tag_relationships.csv",
+        ),
+        (
+            headers_dir / "artist_tag_rel_header.csv",
+            relationships_dir / "artist_tag_relationships.csv",
+        ),
+        (
+            headers_dir / "release_tag_rel_header.csv",
+            relationships_dir / "release_tag_relationships.csv",
+        ),
+    ]
+
+    for header_file, data_file in relationship_files:
+        if header_file.exists() and data_file.exists():
+            cmd.append(
+                f"--relationships={get_path(header_file, '/headers')},{get_path(data_file, '/relationships')}"
+            )
 
     # neo4j-admin prefers 'TAB' for tab delimiter to avoid shell issues
     val_delimiter = "TAB" if delimiter == "\t" else delimiter

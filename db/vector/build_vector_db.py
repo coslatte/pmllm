@@ -8,25 +8,27 @@ MAX_TEXT_LENGTH = 2000
 TRUNCATION_SUFFIX = "..."
 
 
-def truncate_text(text: str, max_length: int = MAX_TEXT_LENGTH, suffix: str = TRUNCATION_SUFFIX) -> str:
+def truncate_text(
+    text: str, max_length: int = MAX_TEXT_LENGTH, suffix: str = TRUNCATION_SUFFIX
+) -> str:
     """Truncate text to fit within a maximum length.
-    
+
     Args:
         text: The text to truncate
         max_length: Maximum allowed length (default: MAX_TEXT_LENGTH)
         suffix: Suffix to add when truncating (default: TRUNCATION_SUFFIX)
-        
+
     Returns:
         Truncated text with suffix if needed, otherwise original text
     """
     if len(text) > max_length:
-        return text[:max_length - len(suffix)] + suffix
+        return text[: max_length - len(suffix)] + suffix
     return text
 
 
 def populate(labels):
     """Populate the Milvus vector database with nodes from Neo4j.
-    
+
     Args:
         labels: List of Neo4j node labels to process and embed
     """
@@ -44,10 +46,10 @@ def populate(labels):
             text = build_text(node)
             # Truncate text to fit VARCHAR max_length limit
             text = truncate_text(text)
-            
+
             try:
                 vector = embed(text)
-                
+
                 ids.append(node["id"])
                 embeddings.append(vector)
                 texts.append(text)
@@ -58,7 +60,9 @@ def populate(labels):
                 continue
             except Exception as e:
                 # Unexpected errors - log and continue but notify
-                print(f"Error: Unexpected error embedding node {node['id']}: {type(e).__name__}: {e}")
+                print(
+                    f"Error: Unexpected error embedding node {node['id']}: {type(e).__name__}: {e}"
+                )
                 continue
 
         if ids:

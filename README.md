@@ -33,7 +33,7 @@ See `plan/PLAN.md` for the structured, agent-friendly plan and task contracts.
 
 The MusicBrainz-to-Neo4j pipeline creates a comprehensive knowledge graph with:
 
-**7 Node Types:**
+**Core Node Types (7):**
 
 - **Artist** (15 fields): Core entity with biographical data
 - **Recording** (7 fields): Individual music tracks
@@ -43,7 +43,21 @@ The MusicBrainz-to-Neo4j pipeline creates a comprehensive knowledge graph with:
 - **ReleaseGroup** (7 fields): Logical release groupings
 - **Tag** (3 fields): Genre and categorization labels
 
-**9 Relationship Types:**
+**Derived Node Types (9 - configurable):**
+
+- **Label** (15 fields): Record labels (Sony, Universal, etc.)
+- **Medium** (6 fields): Physical media types (CD, Vinyl, Digital)
+- **Track** (9 fields): Individual tracks within releases
+- **Place** (8 fields): Recording locations, venues
+- **Event** (12 fields): Concerts, festivals, events
+- **Genre** (5 fields): Music genres
+- **Instrument** (6 fields): Musical instruments
+- **Series** (7 fields): Album/artist series
+- **Url** (2 fields): External links (Wikipedia, official sites)
+
+**Relationship Types (25+):**
+
+*Core relationships:*
 
 - Artist → Recording (`PERFORMED_ON`): Artist credits on recordings
 - Artist → Release (`RELEASED`): Artist participation in releases
@@ -55,6 +69,26 @@ The MusicBrainz-to-Neo4j pipeline creates a comprehensive knowledge graph with:
 - Artist → Tag (`HAS_TAG`): Artist categorization
 - Release → Tag (`HAS_TAG`): Release tagging
 
+*Extended relationships (derived data):*
+
+- Label → Release (`PUBLISHED`): Label publishing relationships
+- Label → Recording (`DISTRIBUTED`): Label distribution relationships
+- Artist → Place (`PERFORMED_AT`): Performance venues
+- Release → Place (`RECORDED_AT`): Recording locations
+- Recording → Place (`RECORDED_AT`): Recording studios
+- Artist → Event (`PERFORMED_AT`): Concert appearances
+- Release → Event (`PROMOTED_AT`): Event promotions
+- Recording → Event (`FEATURED_AT`): Event features
+- Artist → Genre (`BELONGS_TO`): Genre associations
+- Release → Genre (`BELONGS_TO`): Release genres
+- Recording → Genre (`BELONGS_TO`): Recording genres
+- Artist → Instrument (`PLAYS`): Instrument specializations
+- Recording → Url (`AVAILABLE_AT`): Streaming/download links
+- Release → Url (`AVAILABLE_AT`): Release links
+- Artist → Url (`OFFICIAL_SITE`): Artist websites
+- Work → Url (`SCORE_AT`): Sheet music links
+- Label → Url (`OFFICIAL_SITE`): Label websites
+
 **Quality Assurance:**
 
 - ✅ 100% schema integrity validated
@@ -62,6 +96,34 @@ The MusicBrainz-to-Neo4j pipeline creates a comprehensive knowledge graph with:
 - ✅ Sampling-compatible for large datasets
 - ✅ Excludes overly specific data points
 - ✅ Optimized for music recommendation use cases
+
+### Derived Data Configuration
+
+The pipeline now supports processing additional MusicBrainz "derived" data files that significantly enrich the knowledge graph. Configure which derived data to include in your `.env` file:
+
+```bash
+# Core derived entities (recommended: true for richer metadata)
+PROCESS_LABELS=true          # Record labels (Sony, Universal, etc.)
+PROCESS_MEDIUMS=true         # Physical media types (CD, Vinyl, Digital)
+PROCESS_TRACKS=true          # Individual tracks within releases
+PROCESS_PLACES=true          # Recording locations, venues
+PROCESS_EVENTS=true          # Concerts, festivals, events
+PROCESS_GENRES=true          # Music genres
+PROCESS_INSTRUMENTS=true     # Musical instruments
+PROCESS_SERIES=true          # Album/Artist series
+PROCESS_URLS=true            # External links (Wikipedia, official sites)
+
+# Extended relationships
+PROCESS_EXTENDED_RELATIONSHIPS=true  # Additional l_* relationship files
+```
+
+**Benefits of derived data:**
+
+- **Enhanced recommendations**: More connection paths between artists, works, and locations
+- **Geographic insights**: Recording studios, performance venues, artist origins
+- **Industry context**: Record labels, release formats, distribution networks
+- **Rich metadata**: Genres, instruments, events, and external references
+- **Better search**: More entry points for discovering music relationships
 
 Notes on the MusicBrainz fragment:
 
@@ -99,6 +161,7 @@ Notes on the MusicBrainz fragment:
 
 - `docs/CLI_USAGE.md` — Comprehensive CLI usage guide with examples, sampling strategies, and validation features
 - `docs/CHANGELOG.md` — Log of all changes made to the project, especially by agents
+- `ENVIRONMENT.md` — Detailed environment variables configuration guide
 - `plan/PLAN.md` — Structured project plan
 - `plan/original_plan.md` — Original plan with annotations
 
@@ -168,6 +231,8 @@ Note: the project now uses a RAG approach with Qwen 3. Do not add or expect fine
    # Embedding model (optional)
    export EMBEDDING_MODEL_PATH="Alibaba-NLP/gte-Qwen2-1.5B-instruct"
    ```
+
+   For a complete list of environment variables and their descriptions, see `ENVIRONMENT.md`.
 
 5. **Start Milvus services:**
 

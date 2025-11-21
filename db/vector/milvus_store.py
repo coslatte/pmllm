@@ -36,7 +36,7 @@ def init_milvus(
         "metric_type": "COSINE",
         "params": {"M": 16, "efConstruction": 200},
     }
-    
+
     # Check if index already exists before creating
     try:
         if not collection.has_index():
@@ -45,6 +45,7 @@ def init_milvus(
         # Index might already exist or there could be a connection issue
         # Log the exception in production environments
         import sys
+
         print(f"Warning: Could not create index: {e}", file=sys.stderr)
 
     return collection

@@ -23,10 +23,9 @@ def handle_convert(src: Path, out_dir: Path) -> int:
 
 
 def handle_prepare(
-    mbdump_dir: Path,
-    headers_dir: Path,
-    labeled_dir: Path,
-    relationships_dir: Path,
+    core_dir: Path,
+    derived_dir: Path,
+    output_dir: Path,
     delimiter: str,
     encoding: str,
     skip_headers: bool,
@@ -39,10 +38,9 @@ def handle_prepare(
     Prepare MusicBrainz data for Neo4j.
     """
     run_pipeline(
-        mbdump_dir=mbdump_dir,
-        headers_dir=headers_dir,
-        labeled_dir=labeled_dir,
-        relationships_dir=relationships_dir,
+        core_dir=core_dir,
+        derived_dir=derived_dir,
+        output_dir=output_dir,
         delimiter=delimiter,
         encoding=encoding,
         skip_headers=skip_headers,
@@ -125,10 +123,9 @@ def convert(
 
 @app.command("prepare-neo4j")
 def prepare_neo4j(
-    mbdump: str = typer.Option("mbdump", help="Directory with the original MusicBrainz files"),
-    headers_dir: str = typer.Option("neo4j_headers", help="Output directory for headers"),
-    labeled_dir: str = typer.Option("labeled", help="Output directory for labeled files"),
-    relationships_dir: str = typer.Option("relationships", help="Output directory for relationship files"),
+    core_dir: str = typer.Option("music_metadata", help="Directory with core MusicBrainz TSV files"),
+    derived_dir: str = typer.Option("music_derived_metadata", help="Directory with derived MusicBrainz TSV files"),
+    output_dir: str = typer.Option("output", help="Base output directory (creates core/ and derived/ subdirs)"),
     sample_percent: float = typer.Option(100.0, help="Percent of rows to keep when generating CSVs"),
     sample_seed: int = typer.Option(42, help="Random seed controlling which rows are kept during sampling"),
     delimiter: str = typer.Option("\t", help="Delimiter used by input files"),
@@ -143,10 +140,9 @@ def prepare_neo4j(
     try:
         sample_fraction = max(0.0, min(sample_percent, 100.0)) / 100.0
         handle_prepare(
-            mbdump_dir=Path(mbdump),
-            headers_dir=Path(headers_dir),
-            labeled_dir=Path(labeled_dir),
-            relationships_dir=Path(relationships_dir),
+            core_dir=Path(core_dir),
+            derived_dir=Path(derived_dir),
+            output_dir=Path(output_dir),
             delimiter=delimiter,
             encoding=encoding,
             skip_headers=skip_headers,
@@ -158,11 +154,13 @@ def prepare_neo4j(
         typer.secho("✓ Preparation completed!", fg=typer.colors.GREEN)
         typer.echo("\nGenerated files:")
         if not skip_headers:
-            typer.echo(f"  - {Path(headers_dir).resolve()} (directory with headers)")
+            typer.echo(f"  - {Path(output_dir).resolve()}/core/headers/ (core header files)")
         if not skip_labels:
-            typer.echo(f"  - {Path(labeled_dir).resolve()} (labeled data)")
+            typer.echo(f"  - {Path(output_dir).resolve()}/core/labeled/ (core labeled data)")
+            typer.echo(f"  - {Path(output_dir).resolve()}/derived/labeled/ (derived labeled data)")
         if not skip_relationships:
-            typer.echo(f"  - {Path(relationships_dir).resolve()} (relationship files)")
+            typer.echo(f"  - {Path(output_dir).resolve()}/core/relationships/ (core relationship files)")
+            typer.echo(f"  - {Path(output_dir).resolve()}/derived/relationships/ (derived relationship files)")
     except Exception as e:
         typer.secho(f"Error: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1)
@@ -170,9 +168,7 @@ def prepare_neo4j(
 
 @app.command("import-neo4j")
 def import_neo4j(
-    headers_dir: str = typer.Option("neo4j_headers", help="Directory containing Neo4j header CSV files"),
-    labeled_dir: str = typer.Option("labeled", help="Directory containing labeled data CSV files"),
-    relationships_dir: str = typer.Option("relationships", help="Directory containing relationship CSV files"),
+    output_dir: str = typer.Option("output", help="Base output directory (reads from core/ subdirs)"),
     db_name: str = typer.Option("musicbrainz.db", help="Target Neo4j database name for bulk import"),
     delimiter: str = typer.Option("\t", help="Field delimiter used in CSV files"),
     array_delimiter: str = typer.Option(";", help="Array delimiter used in CSV fields"),
@@ -195,9 +191,9 @@ def import_neo4j(
         java_home_path = Path(java_home) if java_home else None  # type: ignore
         typer.secho("Running Neo4j bulk import...", fg=typer.colors.BLUE)
         handle_import_neo4j(
-            headers_dir=Path(headers_dir),
-            labeled_dir=Path(labeled_dir),
-            relationships_dir=Path(relationships_dir),
+            headers_dir=Path(output_dir) / "core" / "headers",
+            labeled_dir=Path(output_dir) / "core" / "labeled",
+            relationships_dir=Path(output_dir) / "core" / "relationships",
             db_name=db_name,
             delimiter=delimiter,
             array_delimiter=array_delimiter,
@@ -227,20 +223,25 @@ def build(
     """
     Run the full build process: convert TSV to CSV, prepare headers/data, and import to Neo4j.
     Reads configuration from the specified .env file.
+    
+    Now includes support for derived MusicBrainz data (labels, places, events, genres, etc.)
+    when PROCESS_* options are enabled in the config file.
     """
     try:
         load_dotenv(config)
         typer.secho(f"Loaded config from: {config}", fg=typer.colors.CYAN)
 
         # Extract config values with defaults
-        tsv_dir = Path(os.getenv("TSV_DIR", "mbdump"))
+        core_dir = Path(os.getenv("TSV_CORE_DIR", "music_metadata"))
+        derived_dir = Path(os.getenv("TSV_DERIVED_DIR", "music_derived_metadata"))
+        output_dir = Path(os.getenv("OUTPUT_DIR", "output"))
         csv_out_dir = Path(os.getenv("CSV_OUT_DIR", "out_csv"))
-        headers_dir = Path(os.getenv("HEADERS_DIR", "neo4j_headers"))
-        labeled_dir = Path(os.getenv("LABELED_DIR", "labeled"))
-        relationships_dir = Path(os.getenv("RELATIONSHIPS_DIR", "relationships"))
         sample_percent = float(os.getenv("SAMPLE_PERCENT", "100.0"))
         sample_seed = int(os.getenv("SAMPLE_SEED", "42"))
         delimiter = os.getenv("DELIMITER", "\t")
+        # Handle escape sequences in delimiter
+        if delimiter == "\\t":
+            delimiter = "\t"
         encoding = os.getenv("ENCODING", "utf-8")
         skip_headers = os.getenv("SKIP_HEADERS", "false").lower() == "true"
         skip_labels = os.getenv("SKIP_LABELS", "false").lower() == "true"
@@ -262,18 +263,16 @@ def build(
 
         typer.secho("Starting full build process...", fg=typer.colors.BLUE, bold=True)
 
-        # Step 1: Convert TSV to CSV
-        typer.secho("\nStep 1: Converting TSV to CSV", fg=typer.colors.YELLOW, bold=True)
-        converted = handle_convert(tsv_dir, csv_out_dir)
-        typer.secho(f"✓ Converted {converted} file(s) to: {csv_out_dir.resolve()}", fg=typer.colors.GREEN)
+        # Note: TSV conversion should be done separately for core and derived directories
+        # using: python cli.py convert <directory> --out <csv_output_dir>
+        typer.secho("Note: Ensure TSV files are already converted to CSV if needed", fg=typer.colors.CYAN)
 
-        # Step 2: Prepare headers and data
-        typer.secho("\nStep 2: Preparing headers and data for Neo4j", fg=typer.colors.YELLOW, bold=True)
+        # Step 1: Prepare headers and data
+        typer.secho("\nStep 1: Preparing headers and data for Neo4j", fg=typer.colors.YELLOW, bold=True)
         handle_prepare(
-            mbdump_dir=tsv_dir,
-            headers_dir=headers_dir,
-            labeled_dir=labeled_dir,
-            relationships_dir=relationships_dir,
+            core_dir=core_dir,
+            derived_dir=derived_dir,
+            output_dir=output_dir,
             delimiter=delimiter,
             encoding=encoding,
             skip_headers=skip_headers,
@@ -285,18 +284,20 @@ def build(
         typer.secho("✓ Preparation completed!", fg=typer.colors.GREEN)
         typer.echo("Generated files:")
         if not skip_headers:
-            typer.echo(f"  - {headers_dir.resolve()} (headers)")
+            typer.echo(f"  - {output_dir.resolve()}/core/headers/ (core header files)")
         if not skip_labels:
-            typer.echo(f"  - {labeled_dir.resolve()} (labeled data)")
+            typer.echo(f"  - {output_dir.resolve()}/core/labeled/ (core labeled data)")
+            typer.echo(f"  - {output_dir.resolve()}/derived/labeled/ (derived labeled data)")
         if not skip_relationships:
-            typer.echo(f"  - {relationships_dir.resolve()} (relationships)")
+            typer.echo(f"  - {output_dir.resolve()}/core/relationships/ (core relationship files)")
+            typer.echo(f"  - {output_dir.resolve()}/derived/relationships/ (derived relationship files)")
 
-        # Step 3: Import to Neo4j
-        typer.secho("\nStep 3: Importing to Neo4j", fg=typer.colors.YELLOW, bold=True)
+        # Step 2: Import to Neo4j
+        typer.secho("\nStep 2: Importing to Neo4j", fg=typer.colors.YELLOW, bold=True)
         handle_import_neo4j(
-            headers_dir=headers_dir,
-            labeled_dir=labeled_dir,
-            relationships_dir=relationships_dir,
+            headers_dir=output_dir / "core" / "headers",
+            labeled_dir=output_dir / "core" / "labeled",
+            relationships_dir=output_dir / "core" / "relationships",
             db_name=db_name,
             delimiter=delimiter,
             array_delimiter=array_delimiter,
