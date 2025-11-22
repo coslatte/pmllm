@@ -1,12 +1,17 @@
-from pathlib import Path
-import typer
 from dotenv import load_dotenv
 import os
+from pathlib import Path
+import typer
 from typing import cast
 from utils.helpers.convert_handler import handle_convert
 from utils.helpers.prepare_handler import handle_prepare
 from utils.helpers.import_handler import handle_import_neo4j
-from utils.cli_colors import SUCCESS, ERROR, INFO
+from db.vector.build_vector_db import populate
+from utils.constants.cli_colors import SUCCESS, ERROR, INFO
+
+# Load environment variables from .env file
+load_dotenv(override=True)
+print("Loaded NEO4J_PASSWORD:", repr(os.getenv("NEO4J_PASSWORD")))
 
 app = typer.Typer()
 
@@ -36,27 +41,35 @@ def convert(
 @app.command("prepare-neo4j")
 def prepare_neo4j(
     core_dir: str = typer.Option(
-        "music_metadata", help="Directory with core MusicBrainz TSV files"
+        os.getenv("TSV_CORE_DIR", "music_metadata"), help="Directory with core MusicBrainz TSV files"
     ),
     derived_dir: str = typer.Option(
-        "music_derived_metadata", help="Directory with derived MusicBrainz TSV files"
+        os.getenv("TSV_DERIVED_DIR", "music_derived_metadata"), help="Directory with derived MusicBrainz TSV files"
     ),
     output_dir: str = typer.Option(
-        "output", help="Base output directory (creates core/ and derived/ subdirs)"
+        os.getenv("OUTPUT_DIR", "output"), help="Base output directory (creates core/ and derived/ subdirs)"
     ),
     sample_percent: float = typer.Option(
-        100.0, help="Percent of rows to keep when generating CSVs"
+        float(os.getenv("SAMPLE_PERCENT", "100.0")), help="Percent of rows to keep when generating CSVs"
     ),
     sample_seed: int = typer.Option(
-        42, help="Random seed controlling which rows are kept during sampling"
+        int(os.getenv("SAMPLE_SEED", "42")), help="Random seed controlling which rows are kept during sampling"
     ),
-    delimiter: str = typer.Option("\t", help="Delimiter used by input files"),
+    delimiter: str = typer.Option(
+        os.getenv("DELIMITER", "\t"), help="Delimiter used by input files"
+    ),
     encoding: str = typer.Option(
-        "utf-8", help="Encoding used when reading and writing files"
+        os.getenv("ENCODING", "utf-8"), help="Encoding used when reading and writing files"
     ),
-    skip_headers: bool = typer.Option(False, help="Skip header generation"),
-    skip_labels: bool = typer.Option(False, help="Skip creation of labeled files"),
-    skip_relationships: bool = typer.Option(False, help="Skip relationship generation"),
+    skip_headers: bool = typer.Option(
+        os.getenv("SKIP_HEADERS", "false").lower() == "true", help="Skip header generation"
+    ),
+    skip_labels: bool = typer.Option(
+        os.getenv("SKIP_LABELS", "false").lower() == "true", help="Skip creation of labeled files"
+    ),
+    skip_relationships: bool = typer.Option(
+        os.getenv("SKIP_RELATIONSHIPS", "false").lower() == "true", help="Skip relationship generation"
+    ),
 ):
     """
     Generate headers, labels, and relationships for Neo4j.
@@ -103,27 +116,47 @@ def prepare_neo4j(
 @app.command("import-neo4j")
 def import_neo4j(
     output_dir: str = typer.Option(
-        "output", help="Base output directory (reads from core/ subdirs)"
+        os.getenv("OUTPUT_DIR", "output"), help="Base output directory (reads from core/ subdirs)"
     ),
     db_name: str = typer.Option(
-        "musicbrainz.db", help="Target Neo4j database name for bulk import"
+        os.getenv("DB_NAME", "musicbrainz.db"), help="Target Neo4j database name for bulk import"
     ),
-    delimiter: str = typer.Option("\t", help="Field delimiter used in CSV files"),
-    array_delimiter: str = typer.Option(";", help="Array delimiter used in CSV fields"),
+    delimiter: str = typer.Option(
+        os.getenv("DELIMITER", "\t"), help="Field delimiter used in CSV files"
+    ),
+    array_delimiter: str = typer.Option(
+        os.getenv("ARRAY_DELIMITER", ";"), help="Array delimiter used in CSV fields"
+    ),
     allow_bad_relationships: bool = typer.Option(
-        False, help="Do not skip bad relationships"
+        os.getenv("ALLOW_BAD_RELATIONSHIPS", "false").lower() == "true", help="Do not skip bad relationships"
     ),
-    multiline_fields: bool = typer.Option(True, help="Treat fields as multiline"),
+    multiline_fields: bool = typer.Option(
+        os.getenv("MULTILINE_FIELDS", "true").lower() == "true", help="Treat fields as multiline"
+    ),
     verify: bool = typer.Option(
-        False, help="Run simple verification Cypher queries after import"
+        os.getenv("VERIFY", "false").lower() == "true", help="Run simple verification Cypher queries after import"
     ),
-    user: str = typer.Option("neo4j", help="Neo4j username for verification queries"),
-    password: str = typer.Option(None, help="Neo4j password for verification queries"),
-    host: str = typer.Option("localhost", help="Neo4j host for verification queries"),
-    port: int = typer.Option(7687, help="Neo4j Bolt port for verification queries"),
-    neo4j_bin_path: str = typer.Option(None, help="Path to Neo4j bin directory"),
-    java_home: str = typer.Option(None, help="Path to Java installation"),
-    legacy_import: bool = typer.Option(False, help="Use legacy neo4j-admin import"),
+    user: str = typer.Option(
+        os.getenv("NEO4J_USER", "neo4j"), help="Neo4j username for verification queries"
+    ),
+    password: str = typer.Option(
+        os.getenv("NEO4J_PASSWORD", ""), help="Neo4j password for verification queries"
+    ),
+    host: str = typer.Option(
+        os.getenv("NEO4J_HOST", "localhost"), help="Neo4j host for verification queries"
+    ),
+    port: int = typer.Option(
+        int(os.getenv("NEO4J_PORT", "7687")), help="Neo4j Bolt port for verification queries"
+    ),
+    neo4j_bin_path: str = typer.Option(
+        os.getenv("NEO4J_BIN_PATH", None), help="Path to Neo4j bin directory"
+    ),
+    java_home: str = typer.Option(
+        os.getenv("JAVA_HOME", None), help="Path to Java installation"
+    ),
+    legacy_import: bool = typer.Option(
+        os.getenv("LEGACY_IMPORT", "false").lower() == "true", help="Use legacy neo4j-admin import"
+    ),
 ):
     """
     Run Neo4j bulk import using generated CSV headers and data.
@@ -281,6 +314,27 @@ def build(
 
     except Exception as e:
         typer.secho(f"Error during build: {e}", fg=ERROR, err=True)
+        raise typer.Exit(1)
+
+
+@app.command("build-vector")
+def build_vector(
+    labels: str = typer.Option(
+        "Artist,Recording,Release,Tag,ArtistCredit",
+        help="Comma-separated list of Neo4j node labels to process",
+    ),
+):
+    """
+    Build the vector database by generating embeddings for nodes from Neo4j and storing in Milvus.
+    """
+    try:
+        load_dotenv()
+        label_list = [label.strip() for label in labels.split(",")]
+        typer.secho(f"Building vector DB for labels: {label_list}", fg=INFO)
+        populate(label_list)
+        typer.secho("✓ Vector DB build completed!", fg=SUCCESS)
+    except Exception as e:
+        typer.secho(f"Error: {e}", fg=ERROR, err=True)
         raise typer.Exit(1)
 
 

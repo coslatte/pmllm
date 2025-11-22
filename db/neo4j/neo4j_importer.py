@@ -45,6 +45,11 @@ def run_bulk_import(
 ) -> None:
     """Run neo4j-admin bulk import using generated header + data CSVs."""
 
+    print(f"neo4j_bin_path: {neo4j_bin_path}")
+    print(f"headers_dir: {headers_dir}")
+    print(f"labeled_dir: {labeled_dir}")
+    print(f"relationships_dir: {relationships_dir}")
+
     headers_dir = headers_dir.resolve()
     labeled_dir = labeled_dir.resolve()
     relationships_dir = relationships_dir.resolve()

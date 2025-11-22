@@ -155,9 +155,16 @@ def resolve_table_path(
 
     for root in ordered_roots:
         for candidate in candidates:
+            # First try exact match
             potential = root / candidate
             if potential.exists():
                 return potential
+            # Then try glob pattern for MusicBrainz prefixed files like mbdump-artist-*.tsv
+            glob_pattern = f"*{candidate}"
+            matches = list(root.glob(glob_pattern))
+            if matches:
+                # Return the first match (assuming there's only one)
+                return matches[0]
 
     return None
 

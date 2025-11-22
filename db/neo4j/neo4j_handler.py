@@ -6,7 +6,11 @@ import warnings
 
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "12345678")
+
+print(f"NEO4J_URI: {NEO4J_URI}")
+print(f"NEO4J_USER: {NEO4J_USER}")
+print(f"NEO4J_PASSWORD: {repr(NEO4J_PASSWORD)}")
 
 # For development/testing only - set NEO4J_ALLOW_INSECURE=true to use default password
 _allow_insecure = os.getenv("NEO4J_ALLOW_INSECURE", "").lower() == "true"

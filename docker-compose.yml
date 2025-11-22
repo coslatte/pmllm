@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Neo4j is managed via Neo4j Desktop, so we don't need a container for it.
   # Ensure your Neo4j Desktop instance is running on ports 7474 and 7687.
