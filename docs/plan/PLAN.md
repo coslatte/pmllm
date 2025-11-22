@@ -64,7 +64,7 @@ privacy: "Anonymize PII, follow institutional data policies, keep provenance met
 quality_checks: - "schema validation" - "deduplication" - "source trust scoring"
 
 deliverables:
-code_files: - {name: red_social_llm.py, purpose: "main model orchestration and business logic"} - {name: pi_server.py, purpose: "API server exposing endpoints"} - {name: data_processor.py, purpose: "ETL & dataset preparation"} - {name: evaluator.py, purpose: "evaluation metrics & monitoring"} - {name: requirements.txt, purpose: "Python dependencies"} - {name: cli.py, purpose: "tabular tools and Neo4j import orchestration"} - {name: db/neo4j/neo4j_importer.py, purpose: "helpers to run Neo4j bulk import and verification queries"}
+code_files: - {name: main.py, purpose: "tabular tools and Neo4j import orchestration"} - {name: db/neo4j/neo4j_importer.py, purpose: "helpers to run Neo4j bulk import and verification queries"} - {name: utils/files_manager/csv_helper.py, purpose: "MusicBrainz data preparation for Neo4j"} - {name: db/vector/rag_pipeline.py, purpose: "RAG orchestration with Qwen 3 LLM"} - {name: db/vector/milvus_store.py, purpose: "Milvus connection and collection management"} - {name: requirements.txt, purpose: "Python dependencies"}
 docs: - README.md - API_DOCUMENTATION.md - DATASET.md - docs/CHANGELOG.md
 
 agent_instructions:

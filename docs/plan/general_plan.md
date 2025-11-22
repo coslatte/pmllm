@@ -73,7 +73,7 @@ Hoja de ruta técnica para la implementación de la Fase 2:
 
 ### Paso 2.2: Importación a Neo4j (El Grafo)
 
-Utilizar el script `cli.py` apuntando a la instalación local de Neo4j Desktop.
+Utilizar el script `main.py` apuntando a la instalación local de Neo4j Desktop.
 
 - **Reto**: Identificar la ruta `bin` correcta en Neo4j Desktop.
 - **Acción**: Ejecutar comando de importación (`import-neo4j`).

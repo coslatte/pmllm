@@ -87,6 +87,7 @@ conf/
 
 # Data files
 data/
+output/
 neo4j_headers/
 labeled/
 relationships/

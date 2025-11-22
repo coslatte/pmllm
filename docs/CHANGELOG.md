@@ -2,7 +2,21 @@
 
 This file documents all changes made to the project, especially those implemented by agents.
 
-## 2025-11-13
+## 2025-11-21
+
+- **Documentation Updates**: Added instructions for database access in Neo4j Browser after import. Fixed CLI file references from `cli.py` to `main.py`. Removed duplicate content in `CLI_USAGE.md`. Updated deliverables in `PLAN.md` to reflect actual project files.
+- **Metadata Verification Complete**: Comprehensive validation of all 7 node types and 9 relationship types in the MusicBrainz-to-Neo4j pipeline. All headers, column mappings, and data connections verified for correctness.
+- **Graph Architecture Validated**: Confirmed 100% consistency between Neo4j headers and CSV preparation functions. All relationships properly connect logical music entities (Artist→Recording, Recording→Work, etc.).
+- **Schema Integrity**: Validated column mappings against MusicBrainz TSV schema. All 7 node types and 9 relationship types have correct field counts and data types.
+- **Relationship Expansion**: Added comprehensive relationships including genre tags (3 connections), geographic areas (2 connections), and work hierarchies. Excluded overly specific data points as requested.
+- **Neo4j Import Enhancement**: Updated `neo4j_importer.py` to include all new relationship types (ReleaseGroup, Tag nodes + 6 additional relationship files) in bulk import command.
+- **Data Quality Assurance**: Verified sampling compatibility, referential integrity, and exclusion of overly specific data points. Graph optimized for music recommendation use cases.
+- **Metadata Verification Complete**: Comprehensive validation of all 7 node types and 9 relationship types in the MusicBrainz-to-Neo4j pipeline. All headers, column mappings, and data connections verified for correctness.
+- **Graph Architecture Validated**: Confirmed 100% consistency between Neo4j headers and CSV preparation functions. All relationships properly connect logical music entities (Artist→Recording, Recording→Work, etc.).
+- **Schema Integrity**: Validated column mappings against MusicBrainz TSV schema. All 7 node types and 9 relationship types have correct field counts and data types.
+- **Relationship Expansion**: Added comprehensive relationships including genre tags (3 connections), geographic areas (2 connections), and work hierarchies. Excluded overly specific data points as requested.
+- **Neo4j Import Enhancement**: Updated `neo4j_importer.py` to include all new relationship types (ReleaseGroup, Tag nodes + 6 additional relationship files) in bulk import command.
+- **Data Quality Assurance**: Verified sampling compatibility, referential integrity, and exclusion of overly specific data points. Graph optimized for music recommendation use cases.
 
 - **Project Pivot**: Switched from fine-tuning models to Retrieval-Augmented Generation (RAG) using Qwen 3 as the LLM generator. Updated `README.md`, `plan/PLAN.md`, and `plan/original_plan.md` to reflect this change.
 - **Vector Database**: Selected Milvus as the production vector database for embeddings and retrieval.
@@ -29,11 +43,3 @@ This file documents all changes made to the project, especially those implemente
 - **RAG Reliability Improvements**: Hardened `db/vector/rag_pipeline.py` and `db/vector/helper/embedder.py` with structured response validation, request timeouts, and explicit list-based embeddings to avoid runtime shape mismatches.
 - **Plan Alignment**: Updated `plan/PLAN.md` to mark Stage 2.1 (Neo4j KG import) as in progress and to record the new sampling/legacy import capabilities required for Stage 2 acceptance.
 
-## 2025-11-21
-
-- **Metadata Verification Complete**: Comprehensive validation of all 7 node types and 9 relationship types in the MusicBrainz-to-Neo4j pipeline. All headers, column mappings, and data connections verified for correctness.
-- **Graph Architecture Validated**: Confirmed 100% consistency between Neo4j headers and CSV preparation functions. All relationships properly connect logical music entities (Artist→Recording, Recording→Work, etc.).
-- **Schema Integrity**: Validated column mappings against MusicBrainz TSV schema. All 7 node types and 9 relationship types have correct field counts and data types.
-- **Relationship Expansion**: Added comprehensive relationships including genre tags (3 connections), geographic areas (2 connections), and work hierarchies. Excluded overly specific data points as requested.
-- **Neo4j Import Enhancement**: Updated `neo4j_importer.py` to include all new relationship types (ReleaseGroup, Tag nodes + 6 additional relationship files) in bulk import command.
-- **Data Quality Assurance**: Verified sampling compatibility, referential integrity, and exclusion of overly specific data points. Graph optimized for music recommendation use cases.

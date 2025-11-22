@@ -273,7 +273,7 @@ PROCESS_EXTENDED_RELATIONSHIPS=false
 After configuration, test with:
 
 ```bash
-python cli.py prepare-neo4j --mode testing
+python main.py prepare-neo4j --mode testing
 ```
 
 This will process a small sample and validate your configuration without full import.

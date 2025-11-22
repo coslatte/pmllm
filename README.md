@@ -135,7 +135,7 @@ Notes on the MusicBrainz fragment:
 
 ### Implemented Components
 
-- `cli.py` / `main.py` — Command-line interface for dataset conversion, Neo4j import, and full build automation
+- `main.py` — Command-line interface for dataset conversion, Neo4j import, and full build automation
 - `db/vector/` — Vector database integration with Milvus
   - `milvus_store.py` — Milvus connection and collection management
   - `vector_query.py` — Vector similarity search
@@ -245,7 +245,7 @@ Note: the project now uses a RAG approach with Qwen 3. Do not add or expect fine
    ```bash
    python main.py --help
    # Or directly:
-   python cli.py --help
+   python main.py --help
    ```
 
 ### Usage Examples
@@ -258,7 +258,7 @@ cp .env.example .env
 # Edit .env with your paths and settings
 
 # Run complete pipeline: convert TSV → prepare data → import to Neo4j
-python cli.py build
+python main.py build
 ```
 
 **Individual steps:**
@@ -266,13 +266,13 @@ python cli.py build
 **Convert TSV files to CSV:**
 
 ```bash
-python cli.py convert /path/to/tsv/files -o output_csv
+python main.py convert /path/to/tsv/files -o output_csv
 ```
 
 **Prepare MusicBrainz data for Neo4j:**
 
 ```bash
-python cli.py prepare-neo4j \
+python main.py prepare-neo4j \
   --mbdump mbdump \
   --headers-dir neo4j_headers \
   --labeled-dir labeled \
@@ -283,7 +283,7 @@ python cli.py prepare-neo4j \
 **Import data into Neo4j:**
 
 ```bash
-python cli.py import-neo4j \
+python main.py import-neo4j \
   --headers-dir neo4j_headers \
   --labeled-dir labeled \
   --relationships-dir relationships \
@@ -291,4 +291,27 @@ python cli.py import-neo4j \
   --verify
 ```
 
+**Nota importante sobre la base de datos Neo4j:**
+
+Después de importar los datos, si necesitas acceder a la base de datos desde Neo4j Browser o para consultas posteriores, ejecuta estos comandos en Neo4j Browser:
+
+```cypher
+:use system
+CREATE DATABASE musicbrainz IF NOT EXISTS
+:use musicbrainz
+```
+
+Reemplaza `musicbrainz` con el nombre de base de datos especificado en `--db-name`. La importación masiva crea la base de datos automáticamente, pero estos comandos aseguran que esté disponible para consultas interactivas.
+
 See `docs/CLI_USAGE.md` for comprehensive CLI documentation including sampling modes, validation features, and advanced usage examples.
+
+### CLI Color Scheme
+
+El CLI usa solo 4 colores para mantener claridad y accesibilidad:
+
+- Verde (SUCCESS): Éxito de operaciones.
+- Rojo (ERROR): Errores y fallos.
+- Blanco (INFO): Mensajes informativos y pasos.
+- Negro (BACKGROUND): Reservado para fondo, no forzado en texto.
+
+Definidos en `utils/cli_colors.py` y usados en `main.py`.
