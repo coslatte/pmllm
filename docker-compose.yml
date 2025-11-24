@@ -38,19 +38,13 @@ services:
 
   milvus-standalone:
     container_name: milvus-standalone
-    image: milvus-standalone:latest
-    command: ["/milvus/bin/milvus", "run", "standalone"]
+    image: milvusdb/milvus:latest
+    command: ["milvus", "run", "standalone"]
     environment:
       ETCD_ENDPOINTS: milvus-etcd:2379
       MINIO_ADDRESS: milvus-minio:9000
       MINIO_ACCESS_KEY_ID: minioadmin
       MINIO_SECRET_ACCESS_KEY: minioadmin
-      MILVUS_CONF_DIRS: /milvus/configs
-      MILVUS_CONFIG_DIR: /milvus/configs
-      MILVUS_CONF_FILE: /milvus/configs/milvus.yaml
-      MILVUS_CONFIG_FILE: /milvus/configs/milvus.yaml
-      LD_LIBRARY_PATH: /milvus/lib:$LD_LIBRARY_PATH
-    working_dir: /milvus
     volumes:
       - ./data/milvus/milvus:/var/lib/milvus
     ports:
