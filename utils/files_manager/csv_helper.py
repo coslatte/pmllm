@@ -806,8 +806,8 @@ def add_labels_to_data(
     encoding: str = "utf-8",
     sample_fraction: float = 1.0,
     rng: Optional[random.Random] = None,
-) -> Dict[str, Set[str]]:
-    """Add label columns to existing MusicBrainz data files and return kept node IDs."""
+) -> Optional[Dict[str, Set[str]]]:
+    """Add label columns to existing MusicBrainz data files and return kept node IDs if sampling."""
 
     core_dir = core_dir.resolve()
     derived_dir = derived_dir.resolve()
@@ -829,8 +829,8 @@ def add_labels_to_data(
         "urls": getenv("PROCESS_URLS", "true").lower() == "true",
     }
 
-    kept_ids: Dict[str, Set[str]] = {label: set() for label in FILES_TO_LABEL.values()}
     keep_all_rows = sample_fraction >= 0.9999 or rng is None
+    kept_ids: Optional[Dict[str, Set[str]]] = {label: set() for label in FILES_TO_LABEL.values()} if not keep_all_rows else None
 
     # Core files (always processed)
     core_files = [
@@ -886,7 +886,7 @@ def add_labels_to_data(
 
                     row.append(label)
                     node_id = row[0] if row and row[0] else None
-                    if node_id:
+                    if node_id and kept_ids is not None:
                         kept_ids[label].add(node_id)
                     writer.writerow(row)
 
@@ -950,7 +950,7 @@ def add_labels_to_data(
 
                     row.append(label)
                     node_id = row[0] if row and row[0] else None
-                    if node_id:
+                    if node_id and kept_ids is not None:
                         kept_ids[label].add(node_id)
                     writer.writerow(row)
 

@@ -2,7 +2,6 @@
 
 from .neo4j_handler import (
     stream_nodes,
-    fetch_all_nodes_for_labels,
     list_labels_and_reltypes,
     node_to_dict,
     close,
@@ -15,7 +14,6 @@ from .neo4j_importer import (
 
 __all__ = [
     "stream_nodes",
-    "fetch_all_nodes_for_labels",
     "list_labels_and_reltypes",
     "node_to_dict",
     "close",

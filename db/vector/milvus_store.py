@@ -17,7 +17,7 @@ def init_milvus(
         connections.connect(alias, host=host, port=str(port))
 
     fields = [
-        FieldSchema(name="id", dtype=DataType.INT64, is_primary=True),
+        FieldSchema(name="id", dtype=DataType.VARCHAR, max_length=50, is_primary=True),
         FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=dim),
         FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=2000),
         FieldSchema(name="label", dtype=DataType.VARCHAR, max_length=100),

@@ -1,6 +1,10 @@
-from dotenv import load_dotenv
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file immediately
+load_dotenv(override=True)
+
 import typer
 from typing import cast
 from utils.helpers.convert_handler import handle_convert
@@ -9,9 +13,6 @@ from utils.helpers.import_handler import handle_import_neo4j
 from db.vector.build_vector_db import populate
 from utils.constants.cli_colors import SUCCESS, ERROR, INFO
 
-# Load environment variables from .env file
-load_dotenv(override=True)
-print("Loaded NEO4J_PASSWORD:", repr(os.getenv("NEO4J_PASSWORD")))
 
 app = typer.Typer()
 
@@ -41,34 +42,43 @@ def convert(
 @app.command("prepare-neo4j")
 def prepare_neo4j(
     core_dir: str = typer.Option(
-        os.getenv("TSV_CORE_DIR", "music_metadata"), help="Directory with core MusicBrainz TSV files"
+        os.getenv("TSV_CORE_DIR", "music_metadata"),
+        help="Directory with core MusicBrainz TSV files",
     ),
     derived_dir: str = typer.Option(
-        os.getenv("TSV_DERIVED_DIR", "music_derived_metadata"), help="Directory with derived MusicBrainz TSV files"
+        os.getenv("TSV_DERIVED_DIR", "music_derived_metadata"),
+        help="Directory with derived MusicBrainz TSV files",
     ),
     output_dir: str = typer.Option(
-        os.getenv("OUTPUT_DIR", "output"), help="Base output directory (creates core/ and derived/ subdirs)"
+        os.getenv("OUTPUT_DIR", "output"),
+        help="Base output directory (creates core/ and derived/ subdirs)",
     ),
     sample_percent: float = typer.Option(
-        float(os.getenv("SAMPLE_PERCENT", "100.0")), help="Percent of rows to keep when generating CSVs"
+        float(os.getenv("SAMPLE_PERCENT", "100.0")),
+        help="Percent of rows to keep when generating CSVs",
     ),
     sample_seed: int = typer.Option(
-        int(os.getenv("SAMPLE_SEED", "42")), help="Random seed controlling which rows are kept during sampling"
+        int(os.getenv("SAMPLE_SEED", "42")),
+        help="Random seed controlling which rows are kept during sampling",
     ),
     delimiter: str = typer.Option(
         os.getenv("DELIMITER", "\t"), help="Delimiter used by input files"
     ),
     encoding: str = typer.Option(
-        os.getenv("ENCODING", "utf-8"), help="Encoding used when reading and writing files"
+        os.getenv("ENCODING", "utf-8"),
+        help="Encoding used when reading and writing files",
     ),
     skip_headers: bool = typer.Option(
-        os.getenv("SKIP_HEADERS", "false").lower() == "true", help="Skip header generation"
+        os.getenv("SKIP_HEADERS", "false").lower() == "true",
+        help="Skip header generation",
     ),
     skip_labels: bool = typer.Option(
-        os.getenv("SKIP_LABELS", "false").lower() == "true", help="Skip creation of labeled files"
+        os.getenv("SKIP_LABELS", "false").lower() == "true",
+        help="Skip creation of labeled files",
     ),
     skip_relationships: bool = typer.Option(
-        os.getenv("SKIP_RELATIONSHIPS", "false").lower() == "true", help="Skip relationship generation"
+        os.getenv("SKIP_RELATIONSHIPS", "false").lower() == "true",
+        help="Skip relationship generation",
     ),
 ):
     """
@@ -116,10 +126,12 @@ def prepare_neo4j(
 @app.command("import-neo4j")
 def import_neo4j(
     output_dir: str = typer.Option(
-        os.getenv("OUTPUT_DIR", "output"), help="Base output directory (reads from core/ subdirs)"
+        os.getenv("OUTPUT_DIR", "output"),
+        help="Base output directory (reads from core/ subdirs)",
     ),
     db_name: str = typer.Option(
-        os.getenv("DB_NAME", "musicbrainz.db"), help="Target Neo4j database name for bulk import"
+        os.getenv("DB_NAME", "musicbrainz.db"),
+        help="Target Neo4j database name for bulk import",
     ),
     delimiter: str = typer.Option(
         os.getenv("DELIMITER", "\t"), help="Field delimiter used in CSV files"
@@ -128,13 +140,16 @@ def import_neo4j(
         os.getenv("ARRAY_DELIMITER", ";"), help="Array delimiter used in CSV fields"
     ),
     allow_bad_relationships: bool = typer.Option(
-        os.getenv("ALLOW_BAD_RELATIONSHIPS", "false").lower() == "true", help="Do not skip bad relationships"
+        os.getenv("ALLOW_BAD_RELATIONSHIPS", "false").lower() == "true",
+        help="Do not skip bad relationships",
     ),
     multiline_fields: bool = typer.Option(
-        os.getenv("MULTILINE_FIELDS", "true").lower() == "true", help="Treat fields as multiline"
+        os.getenv("MULTILINE_FIELDS", "true").lower() == "true",
+        help="Treat fields as multiline",
     ),
     verify: bool = typer.Option(
-        os.getenv("VERIFY", "false").lower() == "true", help="Run simple verification Cypher queries after import"
+        os.getenv("VERIFY", "false").lower() == "true",
+        help="Run simple verification Cypher queries after import",
     ),
     user: str = typer.Option(
         os.getenv("NEO4J_USER", "neo4j"), help="Neo4j username for verification queries"
@@ -146,7 +161,8 @@ def import_neo4j(
         os.getenv("NEO4J_HOST", "localhost"), help="Neo4j host for verification queries"
     ),
     port: int = typer.Option(
-        int(os.getenv("NEO4J_PORT", "7687")), help="Neo4j Bolt port for verification queries"
+        int(os.getenv("NEO4J_PORT", "7687")),
+        help="Neo4j Bolt port for verification queries",
     ),
     neo4j_bin_path: str = typer.Option(
         os.getenv("NEO4J_BIN_PATH", None), help="Path to Neo4j bin directory"
@@ -155,7 +171,8 @@ def import_neo4j(
         os.getenv("JAVA_HOME", None), help="Path to Java installation"
     ),
     legacy_import: bool = typer.Option(
-        os.getenv("LEGACY_IMPORT", "false").lower() == "true", help="Use legacy neo4j-admin import"
+        os.getenv("LEGACY_IMPORT", "false").lower() == "true",
+        help="Use legacy neo4j-admin import",
     ),
 ):
     """
@@ -335,6 +352,30 @@ def build_vector(
         typer.secho("✓ Vector DB build completed!", fg=SUCCESS)
     except Exception as e:
         typer.secho(f"Error: {e}", fg=ERROR, err=True)
+        raise typer.Exit(1)
+
+
+@app.command("query")
+def query(
+    question: str = typer.Argument(..., help="The question to ask the RAG system"),
+    k: int = typer.Option(5, help="Number of context documents to retrieve"),
+):
+    """
+    Ask a question to the RAG system (Hybrid Search: Vector + Graph).
+    """
+    try:
+        from db.vector.rag_pipeline import rag_answer
+
+        typer.secho(f"Question: {question}", fg=INFO)
+        typer.secho("Thinking...", fg=INFO)
+
+        answer = rag_answer(question, k=k)
+
+        typer.secho("\nAnswer:", fg=SUCCESS, bold=True)
+        typer.echo(answer)
+
+    except Exception as e:
+        typer.secho(f"Error during query: {e}", fg=ERROR, err=True)
         raise typer.Exit(1)
 
 

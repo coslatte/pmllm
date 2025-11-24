@@ -1,6 +1,6 @@
-# Knowledge-Graph + Retrieval-Augmented Generation (RAG) with Qwen 3 — Music Recommendation & Relationship Tool
+# Knowledge-Graph + Retrieval-Augmented Generation (RAG) with Gemma 3 — Music Recommendation & Relationship Tool
 
-This repository contains a project plan and supporting material for building a Knowledge-Graph-augmented Retrieval-Augmented Generation (RAG) system that uses the Qwen 3 family (e.g., `qwen/qwen3-1.7b`) as the LLM for generation. We no longer pursue model fine-tuning. Instead, the system uses embeddings + a vector store for retrieval and Qwen 3 for high-quality, instruction-following generation over retrieved context. The goal remains: explainable recommendations, relationship discovery across music-related subjects (courses, genres, artists, topics), and contextual question answering for students, educators, and music professionals.
+This repository contains a project plan and supporting material for building a Knowledge-Graph-augmented Retrieval-Augmented Generation (RAG) system that uses the Gemma 3 family (e.g., `google/gemma-3-1b`) as the LLM for generation. We no longer pursue model fine-tuning. Instead, the system uses embeddings + a vector store for retrieval and Gemma 3 for high-quality, instruction-following generation over retrieved context. The goal remains: explainable recommendations, relationship discovery across music-related subjects (courses, genres, artists, topics), and contextual question answering for students, educators, and music professionals.
 
 ## Purpose
 
@@ -13,7 +13,7 @@ This repository contains a project plan and supporting material for building a K
 1. Document & KG ingestion: convert documents and KG nodes into embeddings and index them in a vector store (and keep KG for structured queries).
 2. Embeddings & Vector Store: an embeddings model (cloud or open-source) creates vectors for documents; a vector DB provides nearest-neighbor retrieval. For this project we will use Milvus as the production vector database (development may use local FAISS for quicker iteration).
 3. Retriever: given a user query, retrieve relevant passages/documents and KG facts from the vector store and KG.
-4. Generator (Qwen 3): compose a prompt that includes retrieved context and use Qwen 3 (e.g., `qwen/qwen3-1.7b`) to generate answers, recommendations, and explanations. No fine-tuning required — rely on prompt engineering and retrieval context.
+4. Generator (Gemma 3): compose a prompt that includes retrieved context and use Gemma 3 (e.g., `google/gemma-3-1b`) to generate answers, recommendations, and explanations. No fine-tuning required — rely on prompt engineering and retrieval context.
 5. Orchestration & business logic: combine KG reasoning, retrieved passages, prompt templates, and post-processing (citations, confidence scoring, ranking) to produce final outputs.
 6. API & UI: REST endpoints (e.g., `/recommend`, `/connect`, `/ask`) and simple UI or CLI to query the system.
 7. Evaluator & Monitoring: automated tests and metrics for accuracy, retrieval quality (recall/precision), latency, and user satisfaction.
@@ -139,7 +139,7 @@ Notes on the MusicBrainz fragment:
 - `db/vector/` — Vector database integration with Milvus
   - `milvus_store.py` — Milvus connection and collection management
   - `vector_query.py` — Vector similarity search
-  - `rag_pipeline.py` — RAG orchestration with Qwen 3 LLM
+  - `rag_pipeline.py` — RAG orchestration with Gemma 3 LLM
   - `build_vector_db.py` — Populate vector DB from Neo4j nodes
 - `db/neo4j/` — Neo4j graph database integration
   - `neo4j_handler.py` — Query and retrieve nodes from Neo4j
@@ -176,7 +176,7 @@ Additional notes:
 - Use the `agent_instructions` section in `plan/PLAN.md` for expected I/O formats (JSON task inputs and JSON outputs with `result`, `explanation`, `confidence`, and `sources`).
 - Always include data provenance and a confidence score with answers. When answering, include which retrieved passages or KG facts were used and link to their identifiers.
 
-Note: the project now uses a RAG approach with Qwen 3. Do not add or expect fine-tuning scripts or fine-tuned model artifacts in the repo unless a future decision reintroduces fine-tuning.
+Note: the project now uses a RAG approach with Gemma 3. Do not add or expect fine-tuning scripts or fine-tuned model artifacts in the repo unless a future decision reintroduces fine-tuning.
 
 ## Development / Installation
 
@@ -224,12 +224,12 @@ Note: the project now uses a RAG approach with Qwen 3. Do not add or expect fine
    export MILVUS_HOST="127.0.0.1"
    export MILVUS_PORT="19530"
 
-   # LLM API endpoint (for Qwen via LM Studio)
+   # LLM API endpoint (for Gemma via LM Studio)
    export QWEN_GENERATE_URL="http://localhost:1234/v1/chat/completions"
-   export QWEN_GENERATE_MODEL="qwen-1.7b"
+   export LLM_MODEL="google/gemma-3-1b"
 
    # Embedding model (optional)
-   export EMBEDDING_MODEL_PATH="Alibaba-NLP/gte-Qwen2-1.5B-instruct"
+   export EMBEDDING_MODEL="text-embedding-embeddinggemma-300m-qat"
    ```
 
    For a complete list of environment variables and their descriptions, see `ENVIRONMENT.md`.
@@ -289,6 +289,18 @@ python main.py import-neo4j \
   --relationships-dir relationships \
   --db-name musicbrainz.db \
   --verify
+```
+
+**Build vector database:**
+
+```bash
+python main.py build-vector
+```
+
+**Query the RAG system:**
+
+```bash
+python main.py query "What artists are similar to Queen?"
 ```
 
 **Nota importante sobre la base de datos Neo4j:**

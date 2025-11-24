@@ -20,11 +20,12 @@ def search(query, limit=5, return_raw=False):
         data=[qvec],
         anns_field="embedding",
         limit=limit,
-        output_fields=["text", "label"],
+        output_fields=["text", "label", "id"],
     )
 
     hits = [
         {
+            "id": hit.entity.get("id"),
             "text": hit.entity.get("text"),
             "label": hit.entity.get("label"),
             "score": hit.distance,

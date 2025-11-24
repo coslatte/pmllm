@@ -45,7 +45,7 @@ milestones:
     progress: "Metadata verification complete: 7 node types + 9 relationship types validated. Graph architecture confirmed with 100% schema integrity. Neo4j import pipeline ready for comprehensive music relationship data."
   - id: 2.2
     title: Vector Database Construction
-    description: "Generate embeddings using 'text-embedding-qwen3-embedding-0.6b' and index in Milvus."
+    description: "Generate embeddings using 'text-embedding-embeddinggemma-300m-qat' (Gemma Embedding 300M, Q4_0, 229.09 MB) and index in Milvus."
     status: pending
 
 - id: stage-3
@@ -53,7 +53,7 @@ milestones:
   tasks:
   - id: 3.1
     title: Build RAG Pipeline
-    description: "Integrate Vector Search (Milvus) and Graph Query (Neo4j) to provide context to Qwen 3."
+    description: "Integrate Vector Search (Milvus) and Graph Query (Neo4j) to provide context to Gemma 3 (google/gemma-3-1b, Q4_0, 720.50 MB)."
   - id: 3.2
     title: API & Interface
     description: "Expose the consolidated RAG via REST API."
@@ -64,12 +64,12 @@ privacy: "Anonymize PII, follow institutional data policies, keep provenance met
 quality_checks: - "schema validation" - "deduplication" - "source trust scoring"
 
 deliverables:
-code_files: - {name: main.py, purpose: "tabular tools and Neo4j import orchestration"} - {name: db/neo4j/neo4j_importer.py, purpose: "helpers to run Neo4j bulk import and verification queries"} - {name: utils/files_manager/csv_helper.py, purpose: "MusicBrainz data preparation for Neo4j"} - {name: db/vector/rag_pipeline.py, purpose: "RAG orchestration with Qwen 3 LLM"} - {name: db/vector/milvus_store.py, purpose: "Milvus connection and collection management"} - {name: requirements.txt, purpose: "Python dependencies"}
-docs: - README.md - API_DOCUMENTATION.md - DATASET.md - docs/CHANGELOG.md
+code_files: - {name: main.py, purpose: "tabular tools and Neo4j import orchestration"} - {name: db/neo4j/neo4j_importer.py, purpose: "helpers to run Neo4j bulk import and verification queries"} - {name: utils/files_manager/csv_helper.py, purpose: "MusicBrainz data preparation for Neo4j"} - {name: db/vector/rag_pipeline.py, purpose: "RAG orchestration with Gemma 3 LLM"} - {name: db/vector/milvus_store.py, purpose: "Milvus connection and collection management"} - {name: requirements.txt, purpose: "Python dependencies"}
+docs: - README.md - API_DOCUMENTATION.md - DATASET.md - docs/CHANGELOG.md - docs/CHANGELOG_es.md
 
 agent_instructions:
 priority_order: ["milestones.stage-1", "milestones.stage-2", "milestones.stage-3", "milestones.stage-4"]
-behavior_guidelines: - "When unsure, return 'I don't know' and provide suggested data collection steps." - "Always include data provenance and confidence score in answers." - "Document all changes made by agents in \`docs/CHANGELOG.md\`."
+behavior_guidelines: - "When unsure, return 'I don't know' and provide suggested data collection steps." - "Always include data provenance and confidence score in answers." - "Document all changes made by agents in \`docs/CHANGELOG.md\` and \`docs/CHANGELOG_es.md\` simultaneously when appropriate." - "Use 'uv run python' instead of 'python' for all Python command executions."
 task_format: - input_schema: "JSON object matching the task contract" - expected_output: "JSON with 'result', 'explanation', 'confidence', 'sources'"
 error_handling: - "If an external data source is missing, flag data dependency and fall back to conservative default."
 

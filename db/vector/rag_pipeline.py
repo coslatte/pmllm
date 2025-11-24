@@ -4,13 +4,14 @@ from typing import Any, Dict, List
 import requests
 
 from .vector_query import search
+from db.neo4j.neo4j_handler import query_graph
 
 
 QWEN_GENERATE_URL = os.getenv(
     "QWEN_GENERATE_URL", "http://localhost:1234/v1/chat/completions"
 )
-QWEN_GENERATE_MODEL = os.getenv(
-    "QWEN_GENERATE_MODEL", "qwen-1.7b"
+LLM_MODEL = os.getenv(
+    "LLM_MODEL", "google/gemma-3-1b"
 )  # Name used in LM Studio
 
 
@@ -25,7 +26,7 @@ def qwen_generate(prompt: str) -> str:
     """
     # LM Studio uses OpenAI-compatible API structure
     payload = {
-        "model": QWEN_GENERATE_MODEL,
+        "model": LLM_MODEL,
         "messages": [
             {"role": "system", "content": "You are a helpful music expert assistant."},
             {"role": "user", "content": prompt},
@@ -59,6 +60,37 @@ def qwen_generate(prompt: str) -> str:
         return f"Unexpected error generating response: {e}"
 
 
+def get_graph_context(ids: List[int]) -> List[str]:
+    """Retrieve graph context for a list of node IDs.
+
+    Args:
+        ids: List of node IDs to query
+
+    Returns:
+        List of text strings describing the graph relationships
+    """
+    if not ids:
+        return []
+
+    # Query for direct relationships of the found nodes
+    # We use a Cypher query that formats the output as a readable string
+    # We assume 'id' property in Neo4j matches the Milvus ID
+    cypher = """
+    MATCH (n)-[r]-(m)
+    WHERE elementId(n) IN $ids
+    RETURN 
+        coalesce(n.name, n.title, 'Entity') + ' ' + type(r) + ' ' + coalesce(m.name, m.title, 'Entity') as desc
+    LIMIT 20
+    """
+    
+    try:
+        results = query_graph(cypher, {"ids": ids})
+        return [row["desc"] for row in results if row.get("desc")]
+    except Exception as e:
+        print(f"Error querying graph context: {e}")
+        return []
+
+
 def build_context(query: str, top_k: int = 5) -> List[str]:
     """Retrieve relevant context documents for a query.
 
@@ -69,13 +101,26 @@ def build_context(query: str, top_k: int = 5) -> List[str]:
     Returns:
         List of text strings from relevant documents
     """
+    # 1. Vector Search
     results = search(query, limit=top_k, return_raw=True)
-    context: List[str] = []
+    
+    vector_context: List[str] = []
+    node_ids: List[int] = []
+    
     for row in results:
-        text = row.get("text") if isinstance(row, dict) else None
+        text = row.get("text")
+        nid = row.get("id")
         if isinstance(text, str):
-            context.append(text)
-    return context
+            vector_context.append(text)
+        if nid is not None:
+            node_ids.append(nid)
+            
+    # 2. Graph Search (using IDs from vector search)
+    graph_context = get_graph_context(node_ids)
+    
+    # Combine contexts
+    full_context = vector_context + ["--- GRAPH CONNECTIONS ---"] + graph_context
+    return full_context
 
 
 def build_prompt(query: str, context: List[str]) -> str:

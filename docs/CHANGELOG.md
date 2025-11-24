@@ -2,6 +2,19 @@
 
 This file documents all changes made to the project, especially those implemented by agents.
 
+## 2025-11-24
+
+- **Memory Optimization in Data Preparation**: Fixed memory exhaustion during CSV preparation by preventing accumulation of kept node IDs when sample_fraction >= 0.9999 (full dataset). Modified `utils/files_manager/csv_helper.py` to conditionally create kept_ids sets only during sampling.
+- **RAG Pipeline Fix**: Corrected graph context retrieval in `db/vector/rag_pipeline.py` by changing `n.id IN $ids` to `elementId(n) IN $ids` in Cypher query, ensuring proper matching of Neo4j element IDs from Milvus.
+- **Model Configuration Refactoring**: Renamed `QWEN_GENERATE_MODEL` to `LLM_MODEL` in `.env` and code for better clarity. Ensured all models are configurable via environment variables without hardcoded defaults.
+- **Model Standardization**: Confirmed use of `google/gemma-3-1b` for LLM and `text-embedding-embeddinggemma-300m-qat` for embeddings, aligned with project plan.
+
+## 2025-11-22
+
+- **Model Strategy Update**: Switched text embedding model to 'text-embedding-embeddinggemma-300m-qat' (Gemma Embedding 300M, Q4_0, 229.09 MB from lmstudio-community). Updated LLM to 'google/gemma-3-1b' (Gemma 3 1B, Q4_0, 720.50 MB). This change reflects new LLM strategies for improved performance in the RAG pipeline. Updated `plan/PLAN.md` to document the new models and their specifications.
+- **Documentation Enhancement**: Created `docs/CHANGELOG_es.md` as a Spanish version of the change log, mirroring all entries in Spanish. Updated `plan/PLAN.md` to include documentation in both languages when appropriate and added `docs/CHANGELOG_es.md` to deliverables.
+- **Environment Configuration Update**: Updated `.env` and `docs/ENVIRONMENT.md` to reflect the new Gemma models: set `QWEN_GENERATE_MODEL` to 'google/gemma-3-1b' and `EMBEDDING_MODEL_PATH` to 'text-embedding-embeddinggemma-300m-qat'.
+
 ## 2025-11-21
 
 - **Documentation Updates**: Added instructions for database access in Neo4j Browser after import. Fixed CLI file references from `cli.py` to `main.py`. Removed duplicate content in `CLI_USAGE.md`. Updated deliverables in `PLAN.md` to reflect actual project files.

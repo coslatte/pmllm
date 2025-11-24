@@ -44,13 +44,13 @@ cp .env.example .env
 | Variable              | Default                                     | Description                                        |
 | --------------------- | ------------------------------------------- | -------------------------------------------------- |
 | `QWEN_GENERATE_URL`   | `http://localhost:1234/v1/chat/completions` | Endpoint URL for LLM API (LM Studio or compatible) |
-| `QWEN_GENERATE_MODEL` | `qwen-1.7b`                                 | Model name to use for text generation              |
+| `QWEN_GENERATE_MODEL` | `google/gemma-3-1b`                         | Model name to use for text generation              |
 
 ### Embedding Model Settings
 
-| Variable               | Default                               | Description                                                          |
-| ---------------------- | ------------------------------------- | -------------------------------------------------------------------- |
-| `EMBEDDING_MODEL_PATH` | `Alibaba-NLP/gte-Qwen2-1.5B-instruct` | Path to embedding model. Can be HuggingFace model name or local path |
+| Variable               | Default                                     | Description                                                          |
+| ---------------------- | ------------------------------------------- | -------------------------------------------------------------------- |
+| `EMBEDDING_MODEL_PATH` | `text-embedding-embeddinggemma-300m-qat`   | Path to embedding model. Can be HuggingFace model name or local path |
 
 ## Build Process Configuration
 

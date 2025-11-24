@@ -12,7 +12,7 @@ services:
       - ETCD_SNAPSHOT_COUNT=50000
     volumes:
       - ./data/milvus/etcd:/etcd
-    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls=http://0.0.0.0:2379 --data-dir /etcd
+    command: etcd -advertise-client-urls=http://milvus-etcd:2379 -listen-client-urls=http://0.0.0.0:2379 --data-dir /etcd
     networks:
       - pmllm-net
 
@@ -23,8 +23,8 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
     ports:
-      - "9001:9001"
-      - "9000:9000"
+      - "19001:9001"
+      - "19000:9000"
     volumes:
       - ./data/milvus/minio:/minio_data
     command: minio server /minio_data --console-address ":9001"
@@ -38,11 +38,19 @@ services:
 
   milvus-standalone:
     container_name: milvus-standalone
-    image: milvusdb/milvus:v2.3.3
-    command: ["milvus", "run", "standalone"]
+    image: milvus-standalone:latest
+    command: ["/milvus/bin/milvus", "run", "standalone"]
     environment:
       ETCD_ENDPOINTS: milvus-etcd:2379
       MINIO_ADDRESS: milvus-minio:9000
+      MINIO_ACCESS_KEY_ID: minioadmin
+      MINIO_SECRET_ACCESS_KEY: minioadmin
+      MILVUS_CONF_DIRS: /milvus/configs
+      MILVUS_CONFIG_DIR: /milvus/configs
+      MILVUS_CONF_FILE: /milvus/configs/milvus.yaml
+      MILVUS_CONFIG_FILE: /milvus/configs/milvus.yaml
+      LD_LIBRARY_PATH: /milvus/lib:$LD_LIBRARY_PATH
+    working_dir: /milvus
     volumes:
       - ./data/milvus/milvus:/var/lib/milvus
     ports:
