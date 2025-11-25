@@ -1,4 +1,4 @@
-## Overview
+# Overview
 
 The pmllm system uses environment variables for all configuration. Copy `.env.example` to `.env` and modify as needed:
 
@@ -38,29 +38,29 @@ cp .env.example .env
 
 ### LLM API Settings
 
-| Variable              | Default                                     | Description                                        |
-| --------------------- | ------------------------------------------- | -------------------------------------------------- |
-| `QWEN_GENERATE_URL`   | `http://127.0.0.1:1234/v1/chat/completions` | Endpoint URL for LLM API (LM Studio or compatible) |
-| `LLM_MODEL`           | `google/gemma-3-1b`                         | Model name to use for text generation              |
+| Variable            | Default                                     | Description                                        |
+| ------------------- | ------------------------------------------- | -------------------------------------------------- |
+| `QWEN_GENERATE_URL` | `http://127.0.0.1:1234/v1/chat/completions` | Endpoint URL for LLM API (LM Studio or compatible) |
+| `LLM_MODEL`         | `google/gemma-3-1b`                         | Model name to use for text generation              |
 
 ### Embedding Model Settings
 
-| Variable               | Default                                     | Description                                                          |
-| ---------------------- | ------------------------------------------- | -------------------------------------------------------------------- |
-| `USE_LOCAL_EMBEDDING`  | `false`                                    | Use local SentenceTransformer instead of LM Studio embeddings API    |
-| `EMBEDDING_MODEL`      | `text-embedding-embeddinggemma-300m-qat`   | Model name for embeddings (local or remote)                          |
-| `EMBEDDING_MODEL_PATH` | `text-embedding-embeddinggemma-300m-qat`   | Path to embedding model. Can be HuggingFace name or local path       |
-| `EMBEDDING_URL`        | `http://127.0.0.1:1234/v1/embeddings`      | LM Studio embeddings endpoint URL                                    |
+| Variable               | Default                                  | Description                                                       |
+| ---------------------- | ---------------------------------------- | ----------------------------------------------------------------- |
+| `USE_LOCAL_EMBEDDING`  | `false`                                  | Use local SentenceTransformer instead of LM Studio embeddings API |
+| `EMBEDDING_MODEL`      | `text-embedding-embeddinggemma-300m-qat` | Model name for embeddings (local or remote)                       |
+| `EMBEDDING_MODEL_PATH` | `text-embedding-embeddinggemma-300m-qat` | Path to embedding model. Can be HuggingFace name or local path    |
+| `EMBEDDING_URL`        | `http://127.0.0.1:1234/v1/embeddings`    | LM Studio embeddings endpoint URL                                 |
 
 ## Build Process Configuration
 
 ### Input/Output Directories
 
-| Variable          | Default               | Description                                                                 |
-| ----------------- | --------------------- | --------------------------------------------------------------------------- |
-| `OUTPUT_DIR`      | `output`              | Base output directory. Automatically creates `core/` and `derived/` subdirectories |
-| `TSV_CORE_DIR`    | `music_metadata`      | Directory containing core MusicBrainz TSV files (artists, recordings, releases, etc.) |
-| `TSV_DERIVED_DIR` | `music_derived_metadata` | Directory containing derived MusicBrainz TSV files (labels, places, events, etc.) |
+| Variable          | Default                  | Description                                                                           |
+| ----------------- | ------------------------ | ------------------------------------------------------------------------------------- |
+| `OUTPUT_DIR`      | `output`                 | Base output directory. Automatically creates `core/` and `derived/` subdirectories    |
+| `TSV_CORE_DIR`    | `music_metadata`         | Directory containing core MusicBrainz TSV files (artists, recordings, releases, etc.) |
+| `TSV_DERIVED_DIR` | `music_derived_metadata` | Directory containing derived MusicBrainz TSV files (labels, places, events, etc.)     |
 
 ### Sampling Options
 
@@ -111,11 +111,11 @@ The pipeline supports processing additional MusicBrainz "derived" data to create
 
 ### Extended Relationships
 
-| Variable                         | Default | Description                                                                        |
-| -------------------------------- | ------- | ---------------------------------------------------------------------------------- |
-| `PROCESS_EXTENDED_RELATIONSHIPS` | `true`  | Process additional l_* relationship files. Adds complex inter-entity connections   |
-| `RELATIONSHIPS_TO_SKIP`          | -       | Comma-separated list of relationships to exclude. Useful for performance tuning    |
-| `QUIET_MISSING_EXTENDED_RELATIONSHIPS` | `false` | Suppress warnings when optional l_* tables are absent in the provided dumps         |
+| Variable                               | Default | Description                                                                        |
+| -------------------------------------- | ------- | ---------------------------------------------------------------------------------- |
+| `PROCESS_EXTENDED_RELATIONSHIPS`       | `true`  | Process additional l\_\* relationship files. Adds complex inter-entity connections |
+| `RELATIONSHIPS_TO_SKIP`                | -       | Comma-separated list of relationships to exclude. Useful for performance tuning    |
+| `QUIET_MISSING_EXTENDED_RELATIONSHIPS` | `false` | Suppress warnings when optional l\_\* tables are absent in the provided dumps      |
 
 **Example:** `RELATIONSHIPS_TO_SKIP=l_artist_event,l_genre_genre,l_url_work`
 
@@ -130,12 +130,12 @@ The pipeline supports processing additional MusicBrainz "derived" data to create
 
 ## Vector Build and Testing
 
-| Variable                   | Default | Description                                                      |
-| -------------------------- | ------- | ---------------------------------------------------------------- |
-| `VECTOR_BUILD_WORKERS`     | `12`    | Number of workers for vector building                            |
+| Variable                      | Default | Description                                                      |
+| ----------------------------- | ------- | ---------------------------------------------------------------- |
+| `VECTOR_BUILD_WORKERS`        | `12`    | Number of workers for vector building                            |
 | `VECTOR_BUILD_SAMPLE_PERCENT` | `100.0` | Percentage of data to use when building the vector database      |
-| `TEST_MODE`                | `true`  | Enable test mode (uses `TEST_SAMPLE_PERCENT` instead of full set |
-| `TEST_SAMPLE_PERCENT`      | `1.0`   | Sampling percentage for test mode                                |
+| `TEST_MODE`                   | `true`  | Enable test mode (uses `TEST_SAMPLE_PERCENT` instead of full set |
+| `TEST_SAMPLE_PERCENT`         | `1.0`   | Sampling percentage for test mode                                |
 
 ## Troubleshooting and Validation
 

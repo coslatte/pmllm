@@ -139,7 +139,7 @@ Notes on the MusicBrainz fragment:
 - `db/vector/` — Vector database integration with Milvus
   - `milvus_store.py` — Milvus connection and collection management
   - `vector_query.py` — Vector similarity search
-  - `rag_pipeline.py` — RAG orchestration with Gemma 3 LLM
+- `rag_pipeline.py` — RAG orchestration with Gemma 3 LLM
   - `build_vector_db.py` — Populate vector DB from Neo4j nodes
 - `db/neo4j/` — Neo4j graph database integration
   - `neo4j_handler.py` — Query and retrieve nodes from Neo4j
@@ -316,14 +316,3 @@ CREATE DATABASE musicbrainz IF NOT EXISTS
 Reemplaza `musicbrainz` con el nombre de base de datos especificado en `--db-name`. La importación masiva crea la base de datos automáticamente, pero estos comandos aseguran que esté disponible para consultas interactivas.
 
 See `docs/CLI_USAGE.md` for comprehensive CLI documentation including sampling modes, validation features, and advanced usage examples.
-
-### CLI Color Scheme
-
-El CLI usa solo 4 colores para mantener claridad y accesibilidad:
-
-- Verde (SUCCESS): Éxito de operaciones.
-- Rojo (ERROR): Errores y fallos.
-- Blanco (INFO): Mensajes informativos y pasos.
-- Negro (BACKGROUND): Reservado para fondo, no forzado en texto.
-
-Definidos en `utils/cli_colors.py` y usados en `main.py`.

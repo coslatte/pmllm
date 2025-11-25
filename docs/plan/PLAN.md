@@ -13,11 +13,11 @@ summary: |
 
 metadata:
 purpose: "Help university students and professionals find courses, content, and connections using an LLM augmented with a knowledge graph."
-primary_users: - "university_students" - "professionals" - "platform_developers"
+primary_users: ["university_students", "professionals", "platform_developers"]
 scope:
-include: - "course recommendation" - "professional connection suggestions" - "technical question answering"
-exclude: - "direct financial or medical advice"
-success_criteria: - ">=80% accuracy on curated Q&A test set" - "50% reduction in average information-search time" - "recommendations are personalized and explainable"
+  include: ["course recommendation", "professional connection suggestions", "technical question answering"]
+  exclude: ["direct financial or medical advice"]
+success_criteria: [">=80% accuracy on curated Q&A test set", "50% reduction in average information-search time", "recommendations are personalized and explainable"]
 
 milestones:
 

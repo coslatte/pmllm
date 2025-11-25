@@ -71,12 +71,12 @@ python main.py import-neo4j --verify
 
 ### Main Commands
 
-| Command | Description |
-|---------|-------------|
-| `build` | Run the complete pipeline: convert → prepare → import |
-| `convert` | Convert TSV files to CSV format |
-| `prepare-neo4j` | Generate headers, labels, and relationships |
-| `import-neo4j` | Run Neo4j bulk import |
+| Command         | Description                                           |
+| --------------- | ----------------------------------------------------- |
+| `build`         | Run the complete pipeline: convert → prepare → import |
+| `convert`       | Convert TSV files to CSV format                       |
+| `prepare-neo4j` | Generate headers, labels, and relationships           |
+| `import-neo4j`  | Run Neo4j bulk import                                 |
 
 ### Build Command
 
@@ -86,9 +86,9 @@ python main.py build [OPTIONS]
 
 **Options:**
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--config PATH` | `.env` | Path to configuration file |
+| Option          | Default | Description                |
+| --------------- | ------- | -------------------------- |
+| `--config PATH` | `.env`  | Path to configuration file |
 
 ### Convert Command
 
@@ -102,8 +102,8 @@ python main.py convert [OPTIONS] PATH
 
 **Options:**
 
-| Option | Default | Description |
-|--------|---------|-------------|
+| Option       | Default   | Description                    |
+| ------------ | --------- | ------------------------------ |
 | `--out PATH` | `out_csv` | Output directory for CSV files |
 
 ### Prepare-Neo4j Command
@@ -114,19 +114,19 @@ python main.py prepare-neo4j [OPTIONS]
 
 **Options:**
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--mbdump DIR` | `mbdump` | Directory with MusicBrainz TSV files |
-| `--headers-dir DIR` | `neo4j_headers` | Output directory for headers |
-| `--labeled-dir DIR` | `labeled` | Output directory for labeled data |
-| `--relationships-dir DIR` | `relationships` | Output directory for relationships |
-| `--sample-percent FLOAT` | `100.0` | Sample percentage (0-100) |
-| `--sample-seed INT` | `42` | Random seed for sampling |
-| `--delimiter STR` | `\t` | Input file delimiter |
-| `--encoding STR` | `utf-8` | File encoding |
-| `--skip-headers` | - | Skip header generation |
-| `--skip-labels` | - | Skip labeled data generation |
-| `--skip-relationships` | - | Skip relationship generation |
+| Option                    | Default         | Description                          |
+| ------------------------- | --------------- | ------------------------------------ |
+| `--mbdump DIR`            | `mbdump`        | Directory with MusicBrainz TSV files |
+| `--headers-dir DIR`       | `neo4j_headers` | Output directory for headers         |
+| `--labeled-dir DIR`       | `labeled`       | Output directory for labeled data    |
+| `--relationships-dir DIR` | `relationships` | Output directory for relationships   |
+| `--sample-percent FLOAT`  | `100.0`         | Sample percentage (0-100)            |
+| `--sample-seed INT`       | `42`            | Random seed for sampling             |
+| `--delimiter STR`         | `\t`            | Input file delimiter                 |
+| `--encoding STR`          | `utf-8`         | File encoding                        |
+| `--skip-headers`          | -               | Skip header generation               |
+| `--skip-labels`           | -               | Skip labeled data generation         |
+| `--skip-relationships`    | -               | Skip relationship generation         |
 
 ### Import-Neo4j Command
 
@@ -136,24 +136,24 @@ python main.py import-neo4j [OPTIONS]
 
 **Options:**
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--headers-dir DIR` | `neo4j_headers` | Headers directory |
-| `--labeled-dir DIR` | `labeled` | Labeled data directory |
-| `--relationships-dir DIR` | `relationships` | Relationships directory |
-| `--db-name STR` | `musicbrainz.db` | Neo4j database name |
-| `--delimiter STR` | `\t` | CSV delimiter |
-| `--array-delimiter STR` | `;` | Array field delimiter |
-| `--allow-bad-relationships` | - | Allow broken relationships |
-| `--multiline-fields` | `True` | Treat fields as multiline |
-| `--verify` | - | Run verification queries |
-| `--user STR` | `neo4j` | Neo4j username |
-| `--password STR` | - | Neo4j password |
-| `--host STR` | `localhost` | Neo4j host |
-| `--port INT` | `7687` | Neo4j port |
-| `--neo4j-bin-path PATH` | - | Neo4j bin directory |
-| `--java-home PATH` | - | Java home directory |
-| `--legacy-import`  | - | Use legacy import |
+| Option                      | Default          | Description                |
+| --------------------------- | ---------------- | -------------------------- |
+| `--headers-dir DIR`         | `neo4j_headers`  | Headers directory          |
+| `--labeled-dir DIR`         | `labeled`        | Labeled data directory     |
+| `--relationships-dir DIR`   | `relationships`  | Relationships directory    |
+| `--db-name STR`             | `musicbrainz.db` | Neo4j database name        |
+| `--delimiter STR`           | `\t`             | CSV delimiter              |
+| `--array-delimiter STR`     | `;`              | Array field delimiter      |
+| `--allow-bad-relationships` | -                | Allow broken relationships |
+| `--multiline-fields`        | `True`           | Treat fields as multiline  |
+| `--verify`                  | -                | Run verification queries   |
+| `--user STR`                | `neo4j`          | Neo4j username             |
+| `--password STR`            | -                | Neo4j password             |
+| `--host STR`                | `localhost`      | Neo4j host                 |
+| `--port INT`                | `7687`           | Neo4j port                 |
+| `--neo4j-bin-path PATH`     | -                | Neo4j bin directory        |
+| `--java-home PATH`          | -                | Java home directory        |
+| `--legacy-import`           | -                | Use legacy import          |
 
 **Nota sobre la base de datos Neo4j:**
 
@@ -300,4 +300,3 @@ echo "VERIFY=true" >> .env
 
 python main.py build
 ```
-
