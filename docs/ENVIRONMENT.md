@@ -138,7 +138,9 @@ The pipeline supports processing additional MusicBrainz "derived" data to create
 
 | Variable                      | Default | Description                                                      |
 | ----------------------------- | ------- | ---------------------------------------------------------------- |
-| `VECTOR_BUILD_WORKERS`        | `12`    | Number of workers for vector building                            |
+| `VECTOR_BUILD_WORKERS`        | `-`     | Optional override for worker count. Leave unset to auto-tune     |
+| `VECTOR_BUILD_WORKER_PERCENT` | `0.75`  | Fraction of usable CPU cores (after caps) allocated to workers   |
+| `VECTOR_BUILD_MAX_CORES`      | `8`     | Maximum number of cores considered when auto-tuning worker count |
 | `VECTOR_BUILD_SAMPLE_PERCENT` | `100.0` | Percentage of data to use when building the vector database      |
 | `TEST_MODE`                   | `true`  | Enable test mode (uses `TEST_SAMPLE_PERCENT` instead of full set |
 | `TEST_SAMPLE_PERCENT`         | `1.0`   | Sampling percentage for test mode                                |

@@ -9,6 +9,7 @@ This file documents all changes made to the project, especially those implemente
 - **Demo Command Removal**: Removed the legacy `demo-build` command completely so help output only exposes the supported subcommands. Documentation now directs all demo usage through `build --demo`.
 - **Vector Build Reliability**: Added a Bolt readiness prompt before Step 4, auto-load Milvus collections, updated search params, and ensured TEST_MODE runs embeddings over the full (already downsampled) dataset instead of re-sampling to 1%.
 - **Vector Build Reliability**: Added a Bolt readiness prompt before Step 4, auto-load Milvus collections, and updated `vector_query.py` to pass the required search parameters so `build --demo` and `query` no longer fail when Neo4j or Milvus are still warming up.
+- **Vector Build Auto Scaling**: The worker prompt now defaults to 75% of usable CPU cores, controlled via `VECTOR_BUILD_WORKER_PERCENT` and `VECTOR_BUILD_MAX_CORES`. Updated `.env.example` and `docs/ENVIRONMENT.md` accordingly.
 
 ## 2025-11-24
 
