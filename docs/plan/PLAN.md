@@ -43,6 +43,9 @@ milestones:
     description: "Import structured data to handle precise relationship queries (e.g., Artist-Release connections)."
     status: completed
     progress: "Metadata verification complete: 7 node types + 9 relationship types validated. Graph architecture confirmed with 100% schema integrity. Neo4j import pipeline ready for comprehensive music relationship data."
+    recent_updates:
+      - "Chore: Refactored the Neo4j importer orchestration to simplify relationship loader coordination and reduce duplicated code."
+      - "Chore: Removed deprecated environment toggles tied to the legacy import workflow to keep `.env` lean."
   - id: 2.2
     title: Vector Database Construction
     description: "Generate embeddings using 'text-embedding-embeddinggemma-300m-qat' (Gemma Embedding 300M, Q4_0, 229.09 MB) and index in Milvus."
@@ -78,6 +81,8 @@ next_steps: - "Create small dataset and test harness for stage-1 acceptance test
 ## Human-friendly summary
 
 This document defines a concise plan to build a Knowledge-Graph-enabled LLM for educational and professional recommendation tasks. It aims to be both machine-parsable (YAML metadata) and readable by humans. Agents should follow the 'agent_instructions' section for expected I/O and priorities.
+
+Recent chore updates: Neo4j import helpers were refactored for clarity, and unused environment flags tied to the old import path were removed to avoid configuration drift.
 
 ### Key contracts (short)
 

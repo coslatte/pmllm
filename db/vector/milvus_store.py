@@ -48,4 +48,11 @@ def init_milvus(
 
         print(f"Warning: Could not create index: {e}", file=sys.stderr)
 
+    try:
+        collection.load()
+    except Exception as e:  # noqa: BLE001
+        import sys
+
+        print(f"Warning: Could not load collection: {e}", file=sys.stderr)
+
     return collection

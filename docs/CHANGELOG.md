@@ -2,6 +2,14 @@
 
 This file documents all changes made to the project, especially those implemented by agents.
 
+## 2025-11-26
+
+- **CLI Color Simplification**: Removed `utils/constants/cli_colors.py` and updated `main.py` to call `typer.colors` directly, reducing unused indirection in the command-line UX.
+- **Build Pipeline Overhaul**: `build` now runs the entire chain (TAR/TSV conversion → CSV preparation → Neo4j import → Milvus vector build) and accepts a new `--demo` flag that overrides sampling/test settings. Added reusable conversion prompts, LM Studio embedding reminders, deprecated `demo-build`, and introduced `CSV_CORE_DIR`, `CSV_DERIVED_DIR`, `VECTOR_LABELS`, and `DEMO_VECTOR_SAMPLE_PERCENT` environment controls with updated docs (`README.md`, `CLI_USAGE.md`, `ENVIRONMENT.md`, `.env.example`).
+- **Demo Command Removal**: Removed the legacy `demo-build` command completely so help output only exposes the supported subcommands. Documentation now directs all demo usage through `build --demo`.
+- **Vector Build Reliability**: Added a Bolt readiness prompt before Step 4, auto-load Milvus collections, updated search params, and ensured TEST_MODE runs embeddings over the full (already downsampled) dataset instead of re-sampling to 1%.
+- **Vector Build Reliability**: Added a Bolt readiness prompt before Step 4, auto-load Milvus collections, and updated `vector_query.py` to pass the required search parameters so `build --demo` and `query` no longer fail when Neo4j or Milvus are still warming up.
+
 ## 2025-11-24
 
 - **Memory Optimization in Data Preparation**: Fixed memory exhaustion during CSV preparation by preventing accumulation of kept node IDs when sample_fraction >= 0.9999 (full dataset). Modified `utils/files_manager/csv_helper.py` to conditionally create kept_ids sets only during sampling.

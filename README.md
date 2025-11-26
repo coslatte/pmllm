@@ -250,15 +250,28 @@ Note: the project now uses a RAG approach with Gemma 3. Do not add or expect fin
 
 ### Usage Examples
 
-**Full automated build (recommended):**
+**Demo build (minimal dataset for testing/demos):**
 
 ```bash
 # Configure settings in .env file
 cp .env.example .env
 # Edit .env with your paths and settings
 
-# Run complete pipeline: convert TSV → prepare data → import to Neo4j
-python main.py build
+# Run complete demo pipeline with built-in sampling overrides
+uv run python main.py build --demo
+```
+
+`build --demo` extracts the TAR/TSV dumps, converts them to CSV, prepares Neo4j headers, runs the bulk import, and builds Milvus embeddings using the LM Studio embedding endpoint.
+
+**Full automated build (recommended for production):**
+
+```bash
+# Configure settings in .env file
+cp .env.example .env
+# Edit .env with your paths and settings
+
+# Run complete pipeline: convert TAR/TSV → prepare data → import Neo4j → build vectors
+uv run python main.py build
 ```
 
 **Individual steps:**
@@ -266,13 +279,13 @@ python main.py build
 **Convert TSV files to CSV:**
 
 ```bash
-python main.py convert /path/to/tsv/files -o output_csv
+uv run python main.py convert /path/to/tsv/files -o output_csv
 ```
 
 **Prepare MusicBrainz data for Neo4j:**
 
 ```bash
-python main.py prepare-neo4j \
+uv run python main.py prepare-neo4j \
   --mbdump mbdump \
   --headers-dir neo4j_headers \
   --labeled-dir labeled \
@@ -283,7 +296,7 @@ python main.py prepare-neo4j \
 **Import data into Neo4j:**
 
 ```bash
-python main.py import-neo4j \
+uv run python main.py import-neo4j \
   --headers-dir neo4j_headers \
   --labeled-dir labeled \
   --relationships-dir relationships \
@@ -294,13 +307,13 @@ python main.py import-neo4j \
 **Build vector database:**
 
 ```bash
-python main.py build-vector
+uv run python main.py build-vector
 ```
 
 **Query the RAG system:**
 
 ```bash
-python main.py query "What artists are similar to Queen?"
+uv run python main.py query "What artists are similar to Queen?"
 ```
 
 **Nota importante sobre la base de datos Neo4j:**

@@ -1,5 +1,14 @@
+import os
+
 from .milvus_store import init_milvus
 from .helper.embedder import embed
+
+
+def _search_params():
+    """Return Milvus search params with sane defaults."""
+    metric = os.getenv("MILVUS_SEARCH_METRIC", "COSINE")
+    ef = int(os.getenv("MILVUS_SEARCH_EF", "64"))
+    return {"metric_type": metric, "params": {"ef": ef}}
 
 
 def search(query, limit=5, return_raw=False):
@@ -19,6 +28,7 @@ def search(query, limit=5, return_raw=False):
     results = col.search(
         data=[qvec],
         anns_field="embedding",
+        param=_search_params(),
         limit=limit,
         output_fields=["text", "label", "id"],
     )

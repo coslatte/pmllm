@@ -2,6 +2,14 @@
 
 Este archivo documenta todos los cambios realizados en el proyecto, especialmente aquellos implementados por agentes.
 
+## 2025-11-26
+
+- **Simplificación de Colores CLI**: Se eliminó `utils/constants/cli_colors.py` y se actualizó `main.py` para usar `typer.colors` directamente, evitando una capa innecesaria en la experiencia de línea de comandos.
+- **Reestructuración del comando Build**: `build` ahora ejecuta toda la cadena (conversión TAR/TSV → preparación CSV → importación Neo4j → construcción vectorial) e incorpora la nueva bandera `--demo` que ajusta automáticamente los parámetros de muestreo. Se agregaron reutilización guiada de conversiones, recordatorios sobre el modelo de embeddings en LM Studio, la deprecación de `demo-build`, y las variables `CSV_CORE_DIR`, `CSV_DERIVED_DIR`, `VECTOR_LABELS` y `DEMO_VECTOR_SAMPLE_PERCENT` con la documentación pertinente (`README.md`, `CLI_USAGE.md`, `ENVIRONMENT.md`, `.env.example`).
+- **Eliminación de `demo-build`**: Se retiró el comando heredado `demo-build` para que la ayuda solo muestre subcomandos soportados. Toda la documentación ahora indica `build --demo` para los escenarios rápidos.
+- **Robustez en embeddings**: Ahora se espera a que Bolt esté disponible antes del Paso 4, se cargan automáticamente las colecciones de Milvus, se actualizó la búsqueda y TEST_MODE procesa el 100% del subconjunto ya muestreado en lugar de volver a reducirlo al 1%.
+- **Confiabilidad en la etapa vectorial**: Se agregó un aviso para reiniciar Neo4j antes del Paso 4, se cargan automáticamente las colecciones de Milvus y `vector_query.py` ahora envía los parámetros obligatorios del nuevo SDK, evitando errores cuando Neo4j o Milvus todavía se están inicializando.
+
 ## 2025-11-24
 
 - **Optimización de Memoria en Preparación de Datos**: Corrigió el agotamiento de memoria durante la preparación de CSV al prevenir la acumulación de IDs de nodos retenidos cuando sample_fraction >= 0.9999 (conjunto de datos completo). Modificó `utils/files_manager/csv_helper.py` para crear condicionalmente sets de kept_ids solo durante el muestreo.

@@ -63,17 +63,20 @@ ESTIMATE_SECONDS_PER_NODE = float(
 SAMPLE_PERCENT = float(os.getenv("VECTOR_BUILD_SAMPLE_PERCENT", "1.0"))
 TEST_MODE = os.getenv("TEST_MODE", "true").lower() == "true"
 TEST_SAMPLE_PERCENT = float(os.getenv("TEST_SAMPLE_PERCENT", "1.0"))
+DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() == "true"
 
 
 def _effective_sample_percent() -> float:
     """Return effective sampling percent, clamped to [0, 100].
 
     Priority:
-    - If TEST_MODE is enabled, always use TEST_SAMPLE_PERCENT.
+    - If TEST_MODE is enabled, process all available nodes (100%).
     - Otherwise, use SAMPLE_PERCENT from env.
-    Defaults are set so TEST_MODE=true and TEST_SAMPLE_PERCENT=1.0 → 1%%.
     """
-    percent = TEST_SAMPLE_PERCENT if TEST_MODE else SAMPLE_PERCENT
+    if TEST_MODE:
+        percent = 100.0
+    else:
+        percent = SAMPLE_PERCENT
     return max(0.0, min(percent, 100.0))
 
 

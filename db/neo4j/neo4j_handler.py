@@ -5,21 +5,18 @@ from typing import Generator, Dict, Any, List
 import warnings
 import logging
 
-# Suppress Neo4j deprecation warnings for id()
-warnings.filterwarnings("ignore", message=".*id is deprecated.*")
-# Suppress Neo4j driver logging for notifications
-logging.getLogger("neo4j").setLevel(logging.ERROR)
-# Also suppress notifications from the driver
-logging.getLogger("neo4j.notifications").setLevel(logging.ERROR)
+# warnings.filterwarnings("ignore", message=".*id is deprecated.*")
+# logging.getLogger("neo4j").setLevel(logging.ERROR)
+# logging.getLogger("neo4j.notifications").setLevel(logging.ERROR)
 
-# Deterministic sampling helpers
+# sampling helpers
 _SAMPLE_MOD_BASE = 10000
 _SAMPLE_HASH_EXPR = "toInteger(coalesce(last(split(elementId(n), ':')), elementId(n)))"
 
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "12345678")
-NEO4J_DATABASE = os.getenv("NEO4J_DATABASE", "pmllmdb")  # Default to 'pmllmdb' or 'neo4j'
+NEO4J_DATABASE = os.getenv("NEO4J_DATABASE", "neo4j")
 
 # For development/testing only - set NEO4J_ALLOW_INSECURE=true to use default password
 _allow_insecure = os.getenv("NEO4J_ALLOW_INSECURE", "").lower() == "true"
@@ -39,10 +36,23 @@ if not NEO4J_PASSWORD:
 
 _driver = None
 
+
+def _validate_demo_mode():
+    """Validate that demo mode uses appropriate sampling."""
+    demo_mode = os.getenv("DEMO_MODE", "false").lower() == "true"
+    if demo_mode:
+        sample_percent = float(os.getenv("SAMPLE_PERCENT", "100.0"))
+        if sample_percent >= 1.0:
+            warnings.warn(
+                "DEMO_MODE is enabled but SAMPLE_PERCENT is >= 1.0%. "
+                "Consider setting SAMPLE_PERCENT=0.1 for faster demo builds."
+            )
+
 def _get_driver():
     """Get or create the Neo4j driver."""
     global _driver
     if _driver is None:
+        _validate_demo_mode()
         if not NEO4J_PASSWORD:
             raise ValueError(
                 "NEO4J_PASSWORD environment variable must be set. "
@@ -82,9 +92,9 @@ def node_to_dict(record) -> Dict[str, Any]:
     # When receiving a Record with key 'n', access row['n']
     try:
         try:
-            nid = node.elementId  # Use elementId if available (Neo4j 5+)
+            nid = node.elementId
         except AttributeError:
-            nid = node.id  # Fallback to id() for Neo4j 4.x
+            nid = node.id
         labels = list(node.labels)
         props = dict(node)
     except (AttributeError, TypeError):

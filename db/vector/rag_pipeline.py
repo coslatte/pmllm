@@ -7,16 +7,16 @@ from .vector_query import search
 from db.neo4j.neo4j_handler import query_graph
 
 
-QWEN_GENERATE_URL = os.getenv(
-    "QWEN_GENERATE_URL", "http://localhost:1234/v1/chat/completions"
+LLM_API_URL = os.getenv(
+    "LLM_API_URL", "http://localhost:1234/v1/chat/completions"
 )
 LLM_MODEL = os.getenv(
     "LLM_MODEL", "google/gemma-3-1b"
 )  # Name used in LM Studio
 
 
-def qwen_generate(prompt: str) -> str:
-    """Generate a response using the Qwen LLM via LM Studio API.
+def llm_generate(prompt: str) -> str:
+    """Generate a response using the LLM via LM Studio API.
 
     Args:
         prompt: The prompt text to send to the model
@@ -36,7 +36,7 @@ def qwen_generate(prompt: str) -> str:
     }
 
     try:
-        response = requests.post(QWEN_GENERATE_URL, json=payload, timeout=30)
+        response = requests.post(LLM_API_URL, json=payload, timeout=30)
         response.raise_for_status()
         data: Dict[str, Any] = response.json()
         choice_list = data.get("choices")
@@ -163,4 +163,4 @@ def rag_answer(query: str, k: int = 5) -> str:
         return "No relevant context found in the vector database."
 
     prompt = build_prompt(query, context)
-    return qwen_generate(prompt)
+    return llm_generate(prompt)

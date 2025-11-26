@@ -1,4 +1,6 @@
 import os
+import socket
+import time
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -7,14 +9,54 @@ load_dotenv(override=True)
 
 import typer
 from typing import cast
-from utils.helpers.convert_handler import handle_convert
-from utils.helpers.prepare_handler import handle_prepare
-from utils.helpers.import_handler import handle_import_neo4j
 from db.vector.build_vector_db import populate
-from utils.constants.cli_colors import SUCCESS, ERROR, INFO
+from utils.cli_helpers import (
+    apply_demo_overrides,
+    has_generated_files,
+    print_preflight_summary,
+    split_labels_from_env,
+)
+from utils.helpers.convert_handler import handle_convert
+from utils.helpers.import_handler import handle_import_neo4j
+from utils.helpers.prepare_handler import handle_prepare
 
 
 app = typer.Typer()
+
+DEFAULT_VECTOR_LABELS = [
+    "Artist",
+    "Recording",
+    "Release",
+    "ReleaseGroup",
+    "Work",
+    "Area",
+    "Tag",
+    "ArtistCredit",
+    "Label",
+    "Medium",
+    "Track",
+    "Place",
+    "Event",
+    "Genre",
+    "Instrument",
+    "Series",
+    "Url",
+]
+SUCCESS = typer.colors.GREEN
+ERROR = typer.colors.RED
+INFO = typer.colors.BLUE
+
+
+def _wait_for_bolt(host: str, port: int, timeout: float = 120.0) -> bool:
+    """Poll until the Neo4j Bolt port is reachable."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            with socket.create_connection((host, port), timeout=5):
+                return True
+        except OSError:
+            time.sleep(2)
+    return False
 
 
 @app.command("convert")
@@ -32,10 +74,11 @@ def convert(
             converted = handle_convert(src, out_dir)
             progress.update(1)
         typer.secho(
-            f"✓ Converted {converted} file(s) to: {out_dir.resolve()}", fg=SUCCESS
+            f"✓ Converted {converted} file(s) to: {out_dir.resolve()}",
+            fg=typer.colors.GREEN,
         )
     except Exception as e:
-        typer.secho(f"Error: {e}", fg=ERROR, err=True)
+        typer.secho(f"Error: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1)
 
 
@@ -98,7 +141,7 @@ def prepare_neo4j(
             sample_fraction=sample_fraction,
             sample_seed=sample_seed,
         )
-        typer.secho("✓ Preparation completed!", fg=SUCCESS)
+        typer.secho("✓ Preparation completed!", fg=typer.colors.GREEN)
         typer.echo("\nGenerated files:")
         if not skip_headers:
             typer.echo(
@@ -119,7 +162,7 @@ def prepare_neo4j(
                 f"  - {Path(output_dir).resolve()}/derived/relationships/ (derived relationship files)"
             )
     except Exception as e:
-        typer.secho(f"Error: {e}", fg=ERROR, err=True)
+        typer.secho(f"Error: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1)
 
 
@@ -181,7 +224,7 @@ def import_neo4j(
     try:
         neo4j_bin = Path(neo4j_bin_path) if neo4j_bin_path else None  # type: ignore
         java_home_path = Path(java_home) if java_home else None  # type: ignore
-        typer.secho("Running Neo4j bulk import...", fg=INFO)
+        typer.secho("Running Neo4j bulk import...", fg=typer.colors.WHITE)
         handle_import_neo4j(
             headers_dir=Path(output_dir) / "core" / "headers",
             labeled_dir=Path(output_dir) / "core" / "labeled",
@@ -200,37 +243,45 @@ def import_neo4j(
             java_home=java_home_path,
             legacy_import=legacy_import,
         )
-        typer.secho("✓ Neo4j bulk import completed.", fg=SUCCESS)
+        typer.secho("✓ Neo4j bulk import completed.", fg=typer.colors.GREEN)
         if verify:
-            typer.secho("✓ Verification queries completed.", fg=SUCCESS)
+            typer.secho("✓ Verification queries completed.", fg=typer.colors.GREEN)
     except Exception as e:
-        typer.secho(f"Error: {e}", fg=ERROR, err=True)
+        typer.secho(f"Error: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1)
 
 
-@app.command("build")
-def build(
-    config: str = typer.Option(".env", help="Path to config file (.env format)"),
-):
-    """
-    Run the full build process: convert TSV to CSV, prepare headers/data, and import to Neo4j.
-    Reads configuration from the specified .env file.
-
-    Now includes support for derived MusicBrainz data (labels, places, events, genres, etc.)
-    when PROCESS_* options are enabled in the config file.
-    """
+def _execute_full_build(config: str, demo: bool = False) -> None:
+    """Shared implementation for build pipelines (regular + demo)."""
     try:
         load_dotenv(config)
-        typer.secho(f"Loaded config from: {config}", fg=INFO)
+        typer.secho(f"Loaded config from: {config}", fg=typer.colors.WHITE)
+
+        demo_already_enabled = os.getenv("DEMO_MODE", "false").lower() == "true"
+        if demo:
+            sample_override = apply_demo_overrides()
+            demo_already_enabled = True
+            typer.secho(
+                f"Demo mode enabled: sampling {sample_override:.3f}% of the dataset",
+                fg=INFO,
+                bold=True,
+            )
+        elif demo_already_enabled:
+            typer.secho("DEMO_MODE detected from environment.", fg=INFO)
 
         # Extract config values with defaults
-        core_dir = Path(os.getenv("TSV_CORE_DIR", "music_metadata"))
-        derived_dir = Path(os.getenv("TSV_DERIVED_DIR", "music_derived_metadata"))
+        raw_core_dir = Path(os.getenv("TSV_CORE_DIR", "music_metadata"))
+        raw_derived_dir = Path(os.getenv("TSV_DERIVED_DIR", "music_derived_metadata"))
         output_dir = Path(os.getenv("OUTPUT_DIR", "output"))
+        csv_core_dir = Path(
+            os.getenv("CSV_CORE_DIR", str(output_dir / "converted" / "core"))
+        )
+        csv_derived_dir = Path(
+            os.getenv("CSV_DERIVED_DIR", str(output_dir / "converted" / "derived"))
+        )
         sample_percent = float(os.getenv("SAMPLE_PERCENT", "100.0"))
         sample_seed = int(os.getenv("SAMPLE_SEED", "42"))
         delimiter = os.getenv("DELIMITER", "\t")
-        # Handle escape sequences in delimiter
         if delimiter == "\\t":
             delimiter = "\t"
         encoding = os.getenv("ENCODING", "utf-8")
@@ -257,54 +308,157 @@ def build(
             Path(cast(str, os.getenv("JAVA_HOME"))) if os.getenv("JAVA_HOME") else None
         )
         legacy_import = os.getenv("LEGACY_IMPORT", "false").lower() == "true"
+        vector_labels_env = os.getenv("VECTOR_LABELS")
+        vector_labels = (
+            split_labels_from_env(vector_labels_env)
+            if vector_labels_env
+            else DEFAULT_VECTOR_LABELS
+        )
 
         sample_fraction = max(0.0, min(sample_percent, 100.0)) / 100.0
 
+        checklist = print_preflight_summary(
+            raw_core_dir=raw_core_dir,
+            raw_derived_dir=raw_derived_dir,
+            working_core_dir=csv_core_dir,
+            working_derived_dir=csv_derived_dir,
+            output_dir=output_dir,
+            neo4j_bin_path=neo4j_bin_path,
+            java_home=java_home,
+            info_color=INFO,
+        )
+        ready_to_continue = typer.confirm(
+            "Ready to continue? (raw dumps located, Neo4j stopped, Milvus + LM Studio embedding online, disk space OK)",
+            default=False,
+        )
+        if not ready_to_continue or not all(checklist.values()):
+            typer.secho(
+                "Build aborted. Fix the checklist items above before running again.",
+                fg=ERROR,
+            )
+            raise typer.Exit(1)
+
+        headers_dir = output_dir / "core" / "headers"
+
+        def _convert_dataset(label: str, source: Path, target: Path) -> None:
+            typer.secho(
+                f"Converting {label} dataset from {source} -> {target}",
+                fg=INFO,
+            )
+            converted = handle_convert(source, target)
+            typer.secho(
+                f"✓ Converted {converted} {label.lower()} file(s) to CSV.", fg=SUCCESS
+            )
+
+        def _maybe_convert(label: str, source: Path, target: Path) -> None:
+            if not source.exists():
+                raise FileNotFoundError(
+                    f"{label} source directory not found: {source}. Did you mount/extract the TSV/TAR dumps?"
+                )
+            if has_generated_files(target):
+                typer.secho(
+                    f"Existing CSVs detected for {label} in {target}.",
+                    fg=INFO,
+                )
+                reuse = typer.confirm(
+                    f"Reuse {label.lower()} CSV outputs instead of reconverting?",
+                    default=True,
+                )
+                if reuse:
+                    typer.secho(
+                        f"Reusing {label.lower()} CSV directory: {target}", fg=INFO
+                    )
+                    return
+                typer.secho(
+                    f"Existing {label.lower()} CSVs will be overwritten.", fg=INFO
+                )
+            _convert_dataset(label, source, target)
+
+        def _prompt_reuse_prepared_data() -> bool:
+            if has_generated_files(headers_dir):
+                typer.secho(
+                    f"Existing header CSVs detected in {headers_dir}.",
+                    fg=INFO,
+                )
+                reuse_existing = typer.confirm(
+                    "Reuse current prepared data instead of regenerating headers/labels/relationships?",
+                    default=True,
+                )
+                if reuse_existing:
+                    typer.secho("Reusing previously generated CSV artifacts.", fg=INFO)
+                else:
+                    typer.secho(
+                        "Headers and related CSV files will be overwritten.", fg=INFO
+                    )
+                return reuse_existing
+            return False
+
         typer.secho("Starting full build process...", fg=INFO, bold=True)
 
-        # Note: TSV conversion should be done separately for core and derived directories
-        # using: python cli.py convert <directory> --out <csv_output_dir>
+        # Step 1: Convert TAR/TSV sources to CSV working sets
         typer.secho(
-            "Note: Ensure TSV files are already converted to CSV if needed", fg=INFO
+            "\nStep 1: Converting MusicBrainz dumps (TAR/TSV) into CSV working directories",
+            fg=typer.colors.WHITE,
+            bold=True,
         )
+        _maybe_convert("Core", raw_core_dir, csv_core_dir)
+        _maybe_convert("Derived", raw_derived_dir, csv_derived_dir)
 
-        # Step 1: Prepare headers and data
+        # Step 2: Prepare headers and data
+        reuse_existing_data = _prompt_reuse_prepared_data()
+        if reuse_existing_data:
+            typer.secho(
+                "\nStep 2 skipped: using previously prepared headers/labels/relationships.",
+                fg=INFO,
+                bold=True,
+            )
+        else:
+            typer.secho(
+                "\nStep 2: Preparing headers, labels, and relationships",
+                fg=INFO,
+                bold=True,
+            )
+            handle_prepare(
+                core_dir=csv_core_dir,
+                derived_dir=csv_derived_dir,
+                output_dir=output_dir,
+                delimiter=delimiter,
+                encoding=encoding,
+                skip_headers=skip_headers,
+                skip_labels=skip_labels,
+                skip_relationships=skip_relationships,
+                sample_fraction=sample_fraction,
+                sample_seed=sample_seed,
+            )
+            typer.secho("✓ Preparation completed!", fg=typer.colors.GREEN)
+            typer.echo("Generated files:")
+            if not skip_headers:
+                typer.echo(
+                    f"  - {output_dir.resolve()}/core/headers/ (core header files)"
+                )
+            if not skip_labels:
+                typer.echo(
+                    f"  - {output_dir.resolve()}/core/labeled/ (core labeled data)"
+                )
+                typer.echo(
+                    f"  - {output_dir.resolve()}/derived/labeled/ (derived labeled data)"
+                )
+            if not skip_relationships:
+                typer.echo(
+                    f"  - {output_dir.resolve()}/core/relationships/ (core relationship files)"
+                )
+                typer.echo(
+                    f"  - {output_dir.resolve()}/derived/relationships/ (derived relationship files)"
+                )
+
+        # Step 3: Import to Neo4j
         typer.secho(
-            "\nStep 1: Preparing headers and data for Neo4j", fg=INFO, bold=True
+            "\nStep 3: Importing CSVs into Neo4j (neo4j-admin bulk import)",
+            fg=typer.colors.WHITE,
+            bold=True,
         )
-        handle_prepare(
-            core_dir=core_dir,
-            derived_dir=derived_dir,
-            output_dir=output_dir,
-            delimiter=delimiter,
-            encoding=encoding,
-            skip_headers=skip_headers,
-            skip_labels=skip_labels,
-            skip_relationships=skip_relationships,
-            sample_fraction=sample_fraction,
-            sample_seed=sample_seed,
-        )
-        typer.secho("✓ Preparation completed!", fg=SUCCESS)
-        typer.echo("Generated files:")
-        if not skip_headers:
-            typer.echo(f"  - {output_dir.resolve()}/core/headers/ (core header files)")
-        if not skip_labels:
-            typer.echo(f"  - {output_dir.resolve()}/core/labeled/ (core labeled data)")
-            typer.echo(
-                f"  - {output_dir.resolve()}/derived/labeled/ (derived labeled data)"
-            )
-        if not skip_relationships:
-            typer.echo(
-                f"  - {output_dir.resolve()}/core/relationships/ (core relationship files)"
-            )
-            typer.echo(
-                f"  - {output_dir.resolve()}/derived/relationships/ (derived relationship files)"
-            )
-
-        # Step 2: Import to Neo4j
-        typer.secho("\nStep 2: Importing to Neo4j", fg=INFO, bold=True)
         handle_import_neo4j(
-            headers_dir=output_dir / "core" / "headers",
+            headers_dir=headers_dir,
             labeled_dir=output_dir / "core" / "labeled",
             relationships_dir=output_dir / "core" / "relationships",
             db_name=db_name,
@@ -321,17 +475,72 @@ def build(
             java_home=java_home,
             legacy_import=legacy_import,
         )
-        typer.secho("✓ Neo4j import completed.", fg=SUCCESS)
+        typer.secho("✓ Neo4j import completed.", fg=typer.colors.GREEN)
         if verify:
-            typer.secho("✓ Verification completed.", fg=SUCCESS)
+            typer.secho("✓ Verification completed.", fg=typer.colors.GREEN)
 
         typer.secho(
-            "\n🎉 Full build process completed successfully!", fg=SUCCESS, bold=True
+            "\nNeo4j import finished. Start the database (Neo4j Desktop) so the vector builder can stream nodes.",
+            fg=INFO,
+        )
+        confirm_neo4j = typer.confirm(
+            f"Is Neo4j running at bolt://{neo4j_host}:{neo4j_port}?",
+            default=True,
+        )
+        if not confirm_neo4j:
+            typer.secho(
+                "Vector build skipped because Neo4j is offline.", fg=ERROR
+            )
+            raise typer.Exit(1)
+
+        typer.secho(
+            f"Waiting for bolt://{neo4j_host}:{neo4j_port} to accept connections...",
+            fg=INFO,
+        )
+        if not _wait_for_bolt(neo4j_host, neo4j_port):
+            typer.secho(
+                f"Neo4j at bolt://{neo4j_host}:{neo4j_port} did not respond within 2 minutes.",
+                fg=ERROR,
+            )
+            raise typer.Exit(1)
+
+        # Step 4: Build the vector database (Milvus + embeddings)
+        typer.secho(
+            "\nStep 4: Building Milvus vector database (requires LM Studio embedding model)",
+            fg=typer.colors.WHITE,
+            bold=True,
+        )
+        typer.secho(
+            f"Embedding labels: {vector_labels}",
+            fg=INFO,
+        )
+        populate(vector_labels)
+
+        typer.secho(
+            "\n🎉 Build finished! Neo4j + Milvus are ready for RAG queries.",
+            fg=typer.colors.GREEN,
+            bold=True,
+        )
+        typer.secho(
+            "Switch LM Studio to your conversational LLM before running `query`.",
+            fg=INFO,
         )
 
     except Exception as e:
-        typer.secho(f"Error during build: {e}", fg=ERROR, err=True)
+        typer.secho(f"Error during build: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1)
+
+
+@app.command("build")
+def build(
+    config: str = typer.Option(".env", help="Path to config file (.env format)"),
+    demo: bool = typer.Option(
+        False,
+        "--demo/--no-demo",
+        help="Run the full pipeline with demo sampling (overrides SAMPLE_PERCENT/TEST_MODE).",
+    ),
+):
+    _execute_full_build(config=config, demo=demo)
 
 
 @app.command("build-vector")
@@ -347,11 +556,13 @@ def build_vector(
     try:
         load_dotenv()
         label_list = [label.strip() for label in labels.split(",")]
-        typer.secho(f"Building vector DB for labels: {label_list}", fg=INFO)
+        typer.secho(
+            f"Building vector DB for labels: {label_list}", fg=typer.colors.WHITE
+        )
         populate(label_list)
-        typer.secho("✓ Vector DB build completed!", fg=SUCCESS)
+        typer.secho("✓ Vector DB build completed!", fg=typer.colors.GREEN)
     except Exception as e:
-        typer.secho(f"Error: {e}", fg=ERROR, err=True)
+        typer.secho(f"Error: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1)
 
 
@@ -366,16 +577,16 @@ def query(
     try:
         from db.vector.rag_pipeline import rag_answer
 
-        typer.secho(f"Question: {question}", fg=INFO)
-        typer.secho("Thinking...", fg=INFO)
+        typer.secho(f"Question: {question}", fg=typer.colors.WHITE)
+        typer.secho("Thinking...", fg=typer.colors.WHITE)
 
         answer = rag_answer(question, k=k)
 
-        typer.secho("\nAnswer:", fg=SUCCESS, bold=True)
+        typer.secho("\nAnswer:", fg=typer.colors.GREEN, bold=True)
         typer.echo(answer)
 
     except Exception as e:
-        typer.secho(f"Error during query: {e}", fg=ERROR, err=True)
+        typer.secho(f"Error during query: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1)
 
 

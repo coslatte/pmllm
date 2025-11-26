@@ -43,6 +43,19 @@ pip install -e .
 
 ## Quick Start
 
+### Demo Build (Minimal Dataset)
+
+```bash
+# Copy and configure the environment file
+cp .env.example .env
+# Edit .env with your paths and settings
+
+# Run the complete demo pipeline (0.1% sampling by default)
+uv run python main.py build --demo
+```
+
+`build --demo` now covers conversion → preparation → Neo4j import → vector build using LM Studio's embedding endpoint.
+
 ### Full Automated Build
 
 ```bash
@@ -51,32 +64,40 @@ cp .env.example .env
 # Edit .env with your paths and settings
 
 # Run the complete pipeline
-python main.py build
+uv run python main.py build
 ```
 
 ### Individual Steps
 
 ```bash
 # Convert TSV files to CSV
-python main.py convert mbdump --out out_csv
+uv run python main.py convert mbdump --out out_csv
 
 # Prepare data for Neo4j
-python main.py prepare-neo4j --sample-percent 50.0
+uv run python main.py prepare-neo4j --sample-percent 50.0
 
 # Import to Neo4j
-python main.py import-neo4j --verify
+uv run python main.py import-neo4j --verify
+
+# Build vector database
+uv run python main.py build-vector
+
+# Query the system
+uv run python main.py query "What artists are similar to Queen?"
 ```
 
 ## Command Reference
 
 ### Main Commands
 
-| Command         | Description                                           |
-| --------------- | ----------------------------------------------------- |
-| `build`         | Run the complete pipeline: convert → prepare → import |
+| Command         | Description                                                           |
+| --------------- | --------------------------------------------------------------------- |
+| `build`         | Full pipeline (convert → prepare → import → vector build). Supports `--demo` |
 | `convert`       | Convert TSV files to CSV format                       |
 | `prepare-neo4j` | Generate headers, labels, and relationships           |
 | `import-neo4j`  | Run Neo4j bulk import                                 |
+| `build-vector`  | Build vector database from Neo4j nodes                |
+| `query`         | Query the RAG system                                 |
 
 ### Build Command
 
@@ -86,9 +107,15 @@ python main.py build [OPTIONS]
 
 **Options:**
 
-| Option          | Default | Description                |
-| --------------- | ------- | -------------------------- |
-| `--config PATH` | `.env`  | Path to configuration file |
+| Option              | Default | Description                                                                 |
+| ------------------- | ------- | --------------------------------------------------------------------------- |
+| `--config PATH`     | `.env`  | Path to configuration file                                                   |
+| `--demo/--no-demo`  | `--no-demo` | Force demo sampling + test-mode vector build (overrides several env values) |
+
+### Demo Mode / Backwards Compatibility
+
+- Prefer `uv run python main.py build --demo` for minimal builds.
+- `demo-build` command was removed; use `build --demo` instead.
 
 ### Convert Command
 
@@ -207,11 +234,10 @@ NEO4J_PORT=7687
 
 ### Build Process Steps
 
-1. **TSV Conversion**: Converts all TSV files to CSV format
-2. **Header Extraction**: Generates Neo4j-compatible headers
-3. **Data Preparation**: Creates labeled data and relationships
-4. **Neo4j Import**: Performs bulk import into Neo4j
-5. **Verification**: Runs integrity checks (if enabled)
+1. **Conversion**: Extract TAR archives (if present) and convert TSV files to CSV working sets (`CSV_CORE_DIR`, `CSV_DERIVED_DIR`).
+2. **Preparation**: Generates Neo4j headers, labeled rows, and relationship files with optional sampling.
+3. **Neo4j Import**: Performs `neo4j-admin` bulk import plus optional verification queries.
+4. **Vector Build**: Streams nodes from Neo4j, builds LM Studio embeddings, and writes vectors to Milvus for RAG.
 
 ### Build Output
 
@@ -219,8 +245,9 @@ NEO4J_PORT=7687
 Loaded config from: .env
 Starting full build process...
 
-Step 1: Converting TSV to CSV
-✓ Converted 15 file(s) to: out_csv
+Step 1: Converting MusicBrainz dumps (TAR/TSV) into CSV working directories
+✓ Converted 15 core file(s) to CSV.
+✓ Converted 10 derived file(s) to CSV.
 
 Step 2: Preparing headers and data for Neo4j
 ✓ Preparation completed!
@@ -229,11 +256,14 @@ Generated files:
   - labeled (labeled data)
   - relationships (relationships)
 
-Step 3: Importing to Neo4j
+Step 3: Importing CSVs into Neo4j (neo4j-admin bulk import)
 ✓ Neo4j bulk import completed.
 ✓ Verification completed.
 
-🎉 Full build process completed successfully!
+Step 4: Building Milvus vector database (requires LM Studio embedding model)
+✓ Vector DB build completed!
+
+🎉 Build finished! Neo4j + Milvus are ready for RAG queries.
 ```
 
 **Post-Build: Acceso a la Base de Datos**

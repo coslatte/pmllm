@@ -52,22 +52,28 @@ cp .env.example .env
 | `EMBEDDING_MODEL_PATH` | `text-embedding-embeddinggemma-300m-qat` | Path to embedding model. Can be HuggingFace name or local path    |
 | `EMBEDDING_URL`        | `http://127.0.0.1:1234/v1/embeddings`    | LM Studio embeddings endpoint URL                                 |
 
+> **LM Studio workflow reminder:** the `build` command expects LM Studio to expose the embedding model during conversion, preparation, and vector creation. After the build completes you can switch LM Studio to the conversational LLM model for `query` runs.
+
 ## Build Process Configuration
 
 ### Input/Output Directories
 
-| Variable          | Default                  | Description                                                                           |
-| ----------------- | ------------------------ | ------------------------------------------------------------------------------------- |
-| `OUTPUT_DIR`      | `output`                 | Base output directory. Automatically creates `core/` and `derived/` subdirectories    |
-| `TSV_CORE_DIR`    | `music_metadata`         | Directory containing core MusicBrainz TSV files (artists, recordings, releases, etc.) |
-| `TSV_DERIVED_DIR` | `music_derived_metadata` | Directory containing derived MusicBrainz TSV files (labels, places, events, etc.)     |
+| Variable          | Default                     | Description                                                                                     |
+| ----------------- | --------------------------- | ----------------------------------------------------------------------------------------------- |
+| `OUTPUT_DIR`      | `output`                    | Base output directory. Automatically creates `core/` and `derived/` subdirectories              |
+| `TSV_CORE_DIR`    | `music_metadata`            | Directory containing core MusicBrainz TSV/TAR dumps (artists, recordings, releases, etc.)       |
+| `TSV_DERIVED_DIR` | `music_derived_metadata`    | Directory containing derived MusicBrainz TSV/TAR dumps (labels, places, events, etc.)           |
+| `CSV_CORE_DIR`    | `output/converted/core`     | Working directory where converted core CSV files are stored before preparation (auto-created)   |
+| `CSV_DERIVED_DIR` | `output/converted/derived`  | Working directory where converted derived CSV files are stored before preparation (auto-created) |
 
 ### Sampling Options
 
-| Variable         | Default | Description                                                             |
-| ---------------- | ------- | ----------------------------------------------------------------------- |
-| `SAMPLE_PERCENT` | `1.0`   | Percentage of data to process (0.0-100.0). Use lower values for testing |
-| `SAMPLE_SEED`    | `42`    | Random seed for reproducible sampling. Ensures consistent results       |
+| Variable                   | Default | Description                                                                                 |
+| -------------------------- | ------- | ------------------------------------------------------------------------------------------- |
+| `SAMPLE_PERCENT`           | `1.0`   | Percentage of data to process (0.0-100.0). Use lower values for testing                     |
+| `SAMPLE_SEED`              | `42`    | Random seed for reproducible sampling. Ensures consistent results                           |
+| `DEMO_SAMPLE_PERCENT`      | `0.1`   | Sampling percentage applied when running `build --demo`                                     |
+| `DEMO_VECTOR_SAMPLE_PERCENT` | `0.1` | Sampling percentage applied to the vector build stage when running `build --demo`           |
 
 ### File Processing Options
 
@@ -136,6 +142,7 @@ The pipeline supports processing additional MusicBrainz "derived" data to create
 | `VECTOR_BUILD_SAMPLE_PERCENT` | `100.0` | Percentage of data to use when building the vector database      |
 | `TEST_MODE`                   | `true`  | Enable test mode (uses `TEST_SAMPLE_PERCENT` instead of full set |
 | `TEST_SAMPLE_PERCENT`         | `1.0`   | Sampling percentage for test mode                                |
+| `VECTOR_LABELS`               | *(list)*| Comma-separated list of Neo4j labels to embed (defaults cover Artist, Recording, etc.) |
 
 ## Troubleshooting and Validation
 
