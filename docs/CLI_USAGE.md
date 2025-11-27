@@ -149,7 +149,7 @@ python main.py prepare-neo4j [OPTIONS]
 | `--relationships-dir DIR` | `relationships` | Output directory for relationships   |
 | `--sample-percent FLOAT`  | `100.0`         | Sample percentage (0-100)            |
 | `--sample-seed INT`       | `42`            | Random seed for sampling             |
-| `--delimiter STR`         | `\t`            | Input file delimiter                 |
+| `--delimiter STR`         | `\t`            | Input file delimiter (must be a single character, e.g., tab)                 |
 | `--encoding STR`          | `utf-8`         | File encoding                        |
 | `--skip-headers`          | -               | Skip header generation               |
 | `--skip-labels`           | -               | Skip labeled data generation         |

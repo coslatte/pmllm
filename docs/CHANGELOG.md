@@ -2,7 +2,12 @@
 
 This file documents all changes made to the project, especially those implemented by agents.
 
-## 2025-11-26
+## 2025-11-27
+
+- **Environment Variable Descriptions**: Updated `docs/ENVIRONMENT.md` with concise descriptions and examples for `NEO4J_DATA_DIR` and `NEO4J_BIN_PATH`, including default paths for Neo4j Desktop installations.
+- **Build Command Help Enhancement**: Improved help text for the `build` command in `main.py` to include a checklist of required items and better guidance for demo builds.
+- **Sampling Verification**: Confirmed that data sampling is applied during the `prepare-neo4j` step, not during `convert`, to avoid generating unnecessary full CSV files before sampling.
+- **Delimiter Parsing Issue**: Identified potential issue with `DELIMITER=\t` in `.env` causing "delimiter must be a 1-character string" error; recommended using actual tab character in `.env` or ensuring proper escaping.
 
 - **CLI Color Simplification**: Removed `utils/constants/cli_colors.py` and updated `main.py` to call `typer.colors` directly, reducing unused indirection in the command-line UX.
 - **Build Pipeline Overhaul**: `build` now runs the entire chain (TAR/TSV conversion → CSV preparation → Neo4j import → Milvus vector build) and accepts a new `--demo` flag that overrides sampling/test settings. Added reusable conversion prompts, LM Studio embedding reminders, deprecated `demo-build`, and introduced `CSV_CORE_DIR`, `CSV_DERIVED_DIR`, `VECTOR_LABELS`, and `DEMO_VECTOR_SAMPLE_PERCENT` environment controls with updated docs (`README.md`, `CLI_USAGE.md`, `ENVIRONMENT.md`, `.env.example`).

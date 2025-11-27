@@ -15,8 +15,8 @@ metadata:
 purpose: "Help university students and professionals find courses, content, and connections using an LLM augmented with a knowledge graph."
 primary_users: ["university_students", "professionals", "platform_developers"]
 scope:
-  include: ["course recommendation", "professional connection suggestions", "technical question answering"]
-  exclude: ["direct financial or medical advice"]
+include: ["course recommendation", "professional connection suggestions", "technical question answering"]
+exclude: ["direct financial or medical advice"]
 success_criteria: [">=80% accuracy on curated Q&A test set", "50% reduction in average information-search time", "recommendations are personalized and explainable"]
 
 milestones:
@@ -44,8 +44,8 @@ milestones:
     status: completed
     progress: "Metadata verification complete: 7 node types + 9 relationship types validated. Graph architecture confirmed with 100% schema integrity. Neo4j import pipeline ready for comprehensive music relationship data."
     recent_updates:
-      - "Chore: Refactored the Neo4j importer orchestration to simplify relationship loader coordination and reduce duplicated code."
-      - "Chore: Removed deprecated environment toggles tied to the legacy import workflow to keep `.env` lean."
+    - "Chore: Refactored the Neo4j importer orchestration to simplify relationship loader coordination and reduce duplicated code."
+    - "Chore: Removed deprecated environment toggles tied to the legacy import workflow to keep `.env` lean."
   - id: 2.2
     title: Vector Database Construction
     description: "Generate embeddings using 'text-embedding-embeddinggemma-300m-qat' (Gemma Embedding 300M, Q4_0, 229.09 MB) and index in Milvus."

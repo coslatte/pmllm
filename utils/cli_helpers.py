@@ -114,3 +114,15 @@ def print_preflight_summary(
         )
         status["disk"] = False
     return status
+
+
+def warn_on_blank_env_vars(env_vars: list[str]) -> dict[str, bool]:
+    """Warn when any requested environment variable is unset or blank."""
+    status: dict[str, bool] = {}
+    for var in env_vars:
+        raw = os.getenv(var)
+        missing = raw is None or not raw.strip()
+        status[var] = not missing
+        if missing:
+            typer.echo(f"[MISSING] {var}: environment variable not set.")
+    return status

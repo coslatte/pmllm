@@ -11,14 +11,15 @@ cp .env.example .env
 
 ### Neo4j Connection Settings
 
-| Variable               | Default                 | Description                                                                             |
-| ---------------------- | ----------------------- | --------------------------------------------------------------------------------------- |
-| `NEO4J_URI`            | `bolt://localhost:7687` | Neo4j connection URI. Use `bolt://` for secure connections or `neo4j://` for clustering |
-| `NEO4J_USER`           | `neo4j`                 | Neo4j database username                                                                 |
-| `NEO4J_PASSWORD`       | `your_password_here`    | Neo4j database password. Required for authentication                                    |
-| `NEO4J_DATABASE`       | `pmllmdb`               | Neo4j database name used by this project                                                |
-| `NEO4J_ALLOW_INSECURE` | `false`                 | Allow connections with default password. Only for development/testing                   |
-| `NEO4J_DATA_DIR`       | -                       | Path to Neo4j data directory for local bulk imports                                     |
+| Variable               | Default                 | Description                                                                                                                                              |
+| ---------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEO4J_URI`            | `bolt://localhost:7687` | Neo4j connection URI. Use `bolt://` for secure connections or `neo4j://` for clustering                                                                  |
+| `NEO4J_USER`           | `neo4j`                 | Neo4j database username                                                                                                                                  |
+| `NEO4J_PASSWORD`       | `your_password_here`    | Neo4j database password. Required for authentication                                                                                                     |
+| `NEO4J_DATABASE`       | `pmllmdb`               | Neo4j database name used by this project                                                                                                                 |
+| `NEO4J_ALLOW_INSECURE` | `false`                 | Allow connections with default password. Only for development/testing                                                                                    |
+| `NEO4J_DATA_DIR`       | -                       | Path to Neo4j data directory for local bulk imports. If NEO4J_BIN_PATH is set, this can be left empty. Example: ~/.Neo4jDesktop2/Data/dbmss/dbms-\*/data |
+| `NEO4J_BIN_PATH`       | -                       | Path to Neo4j bin directory for bulk import tool. Example: ~/.Neo4jDesktop2/Data/dbmss/dbms-\*/bin                                                       |
 
 ### Milvus Vector Database Settings
 
@@ -38,10 +39,10 @@ cp .env.example .env
 
 ### LLM API Settings
 
-| Variable            | Default                                     | Description                                        |
-| ------------------- | ------------------------------------------- | -------------------------------------------------- |
-| `QWEN_GENERATE_URL` | `http://127.0.0.1:1234/v1/chat/completions` | Endpoint URL for LLM API (LM Studio or compatible) |
-| `LLM_MODEL`         | `google/gemma-3-1b`                         | Model name to use for text generation              |
+| Variable      | Default                                     | Description                                        |
+| ------------- | ------------------------------------------- | -------------------------------------------------- |
+| `LLM_API_URL` | `http://127.0.0.1:1234/v1/chat/completions` | Endpoint URL for LLM API (LM Studio or compatible) |
+| `LLM_MODEL`   | `google/gemma-3-1b`                         | Model name to use for text generation              |
 
 ### Embedding Model Settings
 
@@ -58,28 +59,29 @@ cp .env.example .env
 
 ### Input/Output Directories
 
-| Variable          | Default                     | Description                                                                                     |
-| ----------------- | --------------------------- | ----------------------------------------------------------------------------------------------- |
-| `OUTPUT_DIR`      | `output`                    | Base output directory. Automatically creates `core/` and `derived/` subdirectories              |
-| `TSV_CORE_DIR`    | `music_metadata`            | Directory containing core MusicBrainz TSV/TAR dumps (artists, recordings, releases, etc.)       |
-| `TSV_DERIVED_DIR` | `music_derived_metadata`    | Directory containing derived MusicBrainz TSV/TAR dumps (labels, places, events, etc.)           |
-| `CSV_CORE_DIR`    | `output/converted/core`     | Working directory where converted core CSV files are stored before preparation (auto-created)   |
-| `CSV_DERIVED_DIR` | `output/converted/derived`  | Working directory where converted derived CSV files are stored before preparation (auto-created) |
+| Variable          | Default                    | Description                                                                                      |
+| ----------------- | -------------------------- | ------------------------------------------------------------------------------------------------ |
+| `OUTPUT_DIR`      | `output`                   | Base output directory. Automatically creates `core/` and `derived/` subdirectories               |
+| `TSV_CORE_DIR`    | `music_metadata`           | Directory containing core MusicBrainz TSV/TAR dumps (artists, recordings, releases, etc.)        |
+| `TSV_DERIVED_DIR` | `music_derived_metadata`   | Directory containing derived MusicBrainz TSV/TAR dumps (labels, places, events, etc.)            |
+| `CSV_CORE_DIR`    | `output/converted/core`    | Working directory where converted core CSV files are stored before preparation (auto-created)    |
+| `CSV_DERIVED_DIR` | `output/converted/derived` | Working directory where converted derived CSV files are stored before preparation (auto-created) |
 
 ### Sampling Options
 
-| Variable                   | Default | Description                                                                                 |
-| -------------------------- | ------- | ------------------------------------------------------------------------------------------- |
-| `SAMPLE_PERCENT`           | `1.0`   | Percentage of data to process (0.0-100.0). Use lower values for testing                     |
-| `SAMPLE_SEED`              | `42`    | Random seed for reproducible sampling. Ensures consistent results                           |
-| `DEMO_SAMPLE_PERCENT`      | `0.1`   | Sampling percentage applied when running `build --demo`                                     |
-| `DEMO_VECTOR_SAMPLE_PERCENT` | `0.1` | Sampling percentage applied to the vector build stage when running `build --demo`           |
+| Variable                     | Default | Description                                                                       |
+| ---------------------------- | ------- | --------------------------------------------------------------------------------- |
+| `SAMPLE_PERCENT`             | `100.0` | Percentage of data to process (0.0-100.0). Use lower values for testing           |
+| `SAMPLE_SEED`                | `123`   | Random seed for reproducible sampling. Ensures consistent results                 |
+| `DEMO_MODE`                  | `true`  | Enable demo mode (overrides sampling settings for quick testing)                  |
+| `DEMO_SAMPLE_PERCENT`        | `0.1`   | Sampling percentage applied when running `build --demo`                           |
+| `DEMO_VECTOR_SAMPLE_PERCENT` | `0.1`   | Sampling percentage applied to the vector build stage when running `build --demo` |
 
 ### File Processing Options
 
 | Variable             | Default | Description                                        |
 | -------------------- | ------- | -------------------------------------------------- |
-| `DELIMITER`          | `\t`    | Field delimiter in input TSV files (tab character) |
+| `DELIMITER`          | `\t`    | Field delimiter in input TSV files (tab character). Must be a single character; use actual tab in .env if needed |
 | `ENCODING`           | `utf-8` | Character encoding of input files                  |
 | `SKIP_HEADERS`       | `false` | Skip generation of Neo4j header files              |
 | `SKIP_LABELS`        | `false` | Skip processing of labeled node data               |
@@ -136,13 +138,13 @@ The pipeline supports processing additional MusicBrainz "derived" data to create
 
 ## Vector Build and Testing
 
-| Variable                      | Default | Description                                                      |
-| ----------------------------- | ------- | ---------------------------------------------------------------- |
-| `VECTOR_BUILD_WORKERS`        | `12`    | Number of workers for vector building                            |
-| `VECTOR_BUILD_SAMPLE_PERCENT` | `100.0` | Percentage of data to use when building the vector database      |
-| `TEST_MODE`                   | `true`  | Enable test mode (uses `TEST_SAMPLE_PERCENT` instead of full set |
-| `TEST_SAMPLE_PERCENT`         | `1.0`   | Sampling percentage for test mode                                |
-| `VECTOR_LABELS`               | *(list)*| Comma-separated list of Neo4j labels to embed (defaults cover Artist, Recording, etc.) |
+| Variable                      | Default  | Description                                                                            |
+| ----------------------------- | -------- | -------------------------------------------------------------------------------------- |
+| `VECTOR_BUILD_WORKERS`        | `4`      | Number of workers for vector building                                                  |
+| `VECTOR_BUILD_SAMPLE_PERCENT` | `1.0`    | Percentage of data to use when building the vector database                            |
+| `TEST_MODE`                   | `true`   | Enable test mode (uses `TEST_SAMPLE_PERCENT` instead of full set)                      |
+| `TEST_SAMPLE_PERCENT`         | `1.0`    | Sampling percentage for test mode                                                      |
+| `VECTOR_LABELS`               | _(list)_ | Comma-separated list of Neo4j labels to embed (defaults cover Artist, Recording, etc.) |
 
 ## Troubleshooting and Validation
 

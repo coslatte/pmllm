@@ -4,6 +4,14 @@ import time
 from pathlib import Path
 from dotenv import load_dotenv
 
+from utils.constants import (
+    CRITICAL_ENV_VARS,
+    DEFAULT_VECTOR_LABELS,
+    ERROR,
+    INFO,
+    SUCCESS,
+)
+
 # Load environment variables from .env file immediately
 load_dotenv(override=True)
 
@@ -15,6 +23,7 @@ from utils.cli_helpers import (
     has_generated_files,
     print_preflight_summary,
     split_labels_from_env,
+    warn_on_blank_env_vars,
 )
 from utils.helpers.convert_handler import handle_convert
 from utils.helpers.import_handler import handle_import_neo4j
@@ -22,29 +31,6 @@ from utils.helpers.prepare_handler import handle_prepare
 
 
 app = typer.Typer()
-
-DEFAULT_VECTOR_LABELS = [
-    "Artist",
-    "Recording",
-    "Release",
-    "ReleaseGroup",
-    "Work",
-    "Area",
-    "Tag",
-    "ArtistCredit",
-    "Label",
-    "Medium",
-    "Track",
-    "Place",
-    "Event",
-    "Genre",
-    "Instrument",
-    "Series",
-    "Url",
-]
-SUCCESS = typer.colors.GREEN
-ERROR = typer.colors.RED
-INFO = typer.colors.BLUE
 
 
 def _wait_for_bolt(host: str, port: int, timeout: float = 120.0) -> bool:
@@ -222,6 +208,8 @@ def import_neo4j(
     Run Neo4j bulk import using generated CSV headers and data.
     """
     try:
+        typer.secho("\n=== Environment variable validation ===", fg=INFO, bold=True)
+        warn_on_blank_env_vars(CRITICAL_ENV_VARS)
         neo4j_bin = Path(neo4j_bin_path) if neo4j_bin_path else None  # type: ignore
         java_home_path = Path(java_home) if java_home else None  # type: ignore
         typer.secho("Running Neo4j bulk import...", fg=typer.colors.WHITE)
@@ -256,6 +244,8 @@ def _execute_full_build(config: str, demo: bool = False) -> None:
     try:
         load_dotenv(config)
         typer.secho(f"Loaded config from: {config}", fg=typer.colors.WHITE)
+        typer.secho("\n=== Environment variable validation ===", fg=INFO, bold=True)
+        warn_on_blank_env_vars(CRITICAL_ENV_VARS)
 
         demo_already_enabled = os.getenv("DEMO_MODE", "false").lower() == "true"
         if demo:
@@ -332,10 +322,13 @@ def _execute_full_build(config: str, demo: bool = False) -> None:
             default=False,
         )
         if not ready_to_continue or not all(checklist.values()):
-            typer.secho(
-                "Build aborted. Fix the checklist items above before running again.",
-                fg=ERROR,
-            )
+            failed_items = [key for key, passed in checklist.items() if not passed]
+            if failed_items:
+                typer.secho("Build aborted. Fix the following checklist items before running again:", fg=ERROR)
+                for item in failed_items:
+                    typer.secho(f"  - {item}", fg=ERROR)
+            else:
+                typer.secho("Build aborted by user.", fg=ERROR)
             raise typer.Exit(1)
 
         headers_dir = output_dir / "core" / "headers"
@@ -488,9 +481,7 @@ def _execute_full_build(config: str, demo: bool = False) -> None:
             default=True,
         )
         if not confirm_neo4j:
-            typer.secho(
-                "Vector build skipped because Neo4j is offline.", fg=ERROR
-            )
+            typer.secho("Vector build skipped because Neo4j is offline.", fg=ERROR)
             raise typer.Exit(1)
 
         typer.secho(
@@ -540,6 +531,25 @@ def build(
         help="Run the full pipeline with demo sampling (overrides SAMPLE_PERCENT/TEST_MODE).",
     ),
 ):
+    """
+    Run the complete pmllm build pipeline: convert TSV to CSV, prepare Neo4j data, import to Neo4j, and build vector database.
+
+    This command performs a full end-to-end build of the RAG system:
+
+    1. Converts MusicBrainz TSV dumps to CSV format
+    2. Prepares Neo4j import files (headers, labels, relationships)
+    3. Imports data into Neo4j using neo4j-admin bulk import
+    4. Builds the Milvus vector database with embeddings
+
+    Requires:
+    - MusicBrainz TSV dumps in TSV_CORE_DIR and TSV_DERIVED_DIR
+    - Neo4j Desktop stopped (for bulk import)
+    - Milvus + MinIO running (docker-compose up -d)
+    - LM Studio with embedding model active
+    - Sufficient disk space (recommended 20GB+)
+
+    Use --demo for quick testing with reduced sampling.
+    """
     _execute_full_build(config=config, demo=demo)
 
 
