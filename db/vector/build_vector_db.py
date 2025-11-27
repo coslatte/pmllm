@@ -2,7 +2,7 @@ import os
 import time
 from multiprocessing import get_context
 from queue import Empty
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import typer
 
@@ -55,7 +55,29 @@ TRUNCATION_SUFFIX = "..."
 # Configuration from Env
 IMPORT_BATCH_SIZE = int(os.getenv("VECTOR_BUILD_IMPORT_BATCH", "100"))
 INSERT_BATCH_SIZE = int(os.getenv("VECTOR_BUILD_INSERT_BATCH", "500"))
-WORKERS = int(os.getenv("VECTOR_BUILD_WORKERS", "10"))
+
+_worker_env_value = os.getenv("VECTOR_BUILD_WORKERS")
+try:
+    WORKERS: Optional[int] = int(_worker_env_value) if _worker_env_value else None
+except ValueError:
+    WORKERS = None
+
+try:
+    WORKER_PERCENT = float(os.getenv("VECTOR_BUILD_WORKER_PERCENT", "0.75"))
+except ValueError:
+    WORKER_PERCENT = 0.75
+
+if WORKER_PERCENT <= 0:
+    WORKER_PERCENT = 0.75
+elif WORKER_PERCENT > 1:
+    WORKER_PERCENT = 1.0
+
+try:
+    _cpu_cap_value = int(os.getenv("VECTOR_BUILD_MAX_CORES", "8"))
+    WORKER_CPU_CAP: Optional[int] = _cpu_cap_value if _cpu_cap_value > 0 else None
+except ValueError:
+    WORKER_CPU_CAP = 8
+
 QUEUE_MULTIPLIER = max(2, int(os.getenv("VECTOR_BUILD_QUEUE_MULTIPLIER", "4")))
 ESTIMATE_SECONDS_PER_NODE = float(
     os.getenv("VECTOR_BUILD_ESTIMATE_SECONDS_PER_NODE", "0.05")
@@ -204,9 +226,26 @@ def _print_label_stats(stats: List[Dict[str, int]], sample_percent: float) -> No
         )
 
 
-def _prompt_worker_count(default_workers: int) -> int:
-    available_cpus = min(os.cpu_count() or 1, 8)  # Cap at 8 to avoid overload
-    suggested = min(default_workers or available_cpus, available_cpus)
+def _prompt_worker_count(default_workers: Optional[int]) -> int:
+    raw_cpus = os.cpu_count() or 1
+    cpu_cap = WORKER_CPU_CAP if isinstance(WORKER_CPU_CAP, int) else raw_cpus
+    available_cpus = min(raw_cpus, cpu_cap)
+
+    percent_target = int(round(available_cpus * WORKER_PERCENT))
+    percent_target = max(1, min(percent_target, available_cpus))
+
+    if default_workers is not None and default_workers > 0:
+        suggested = max(1, min(default_workers, available_cpus))
+    else:
+        suggested = percent_target
+
+    typer.echo(
+        (
+            f"Detected {raw_cpus} cores (usable {available_cpus}). "
+            f"Defaulting to {suggested} workers (~{int(WORKER_PERCENT * 100)}% load)."
+        )
+    )
+
     use_all = typer.confirm(
         f"Do you want to use all cores ({available_cpus})?", default=False
     )

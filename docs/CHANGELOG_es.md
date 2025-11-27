@@ -9,6 +9,7 @@ Este archivo documenta todos los cambios realizados en el proyecto, especialment
 - **Eliminación de `demo-build`**: Se retiró el comando heredado `demo-build` para que la ayuda solo muestre subcomandos soportados. Toda la documentación ahora indica `build --demo` para los escenarios rápidos.
 - **Robustez en embeddings**: Ahora se espera a que Bolt esté disponible antes del Paso 4, se cargan automáticamente las colecciones de Milvus, se actualizó la búsqueda y TEST_MODE procesa el 100% del subconjunto ya muestreado en lugar de volver a reducirlo al 1%.
 - **Confiabilidad en la etapa vectorial**: Se agregó un aviso para reiniciar Neo4j antes del Paso 4, se cargan automáticamente las colecciones de Milvus y `vector_query.py` ahora envía los parámetros obligatorios del nuevo SDK, evitando errores cuando Neo4j o Milvus todavía se están inicializando.
+- **Escalado automático de workers**: El asistente de `build-vector` ahora propone usar el 75% de los núcleos disponibles, configurable con `VECTOR_BUILD_WORKER_PERCENT` y `VECTOR_BUILD_MAX_CORES`. Se actualizó `.env.example` y `docs/ENVIRONMENT.md` para reflejarlo.
 
 ## 2025-11-24
 
