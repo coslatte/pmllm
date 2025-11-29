@@ -2,6 +2,10 @@
 
 This file documents all changes made to the project, especially those implemented by agents.
 
+## 2025-11-29
+
+- **Recommendation Spec**: Added `docs/RECOMMENDATION_SYSTEM.md` detailing the prompt skeleton, JSON schema, and album-plan workflow that combines Neo4j (logical brain) with Milvus (intuitive brain) plus Gemma 3. The document explains required inputs, failure handling, and how to deliver 5–10 explainable recommendations.
+
 ## 2025-11-27
 
 - **Environment Variable Descriptions**: Updated `docs/ENVIRONMENT.md` with concise descriptions and examples for `NEO4J_DATA_DIR` and `NEO4J_BIN_PATH`, including default paths for Neo4j Desktop installations.
