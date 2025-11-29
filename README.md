@@ -57,7 +57,7 @@ The MusicBrainz-to-Neo4j pipeline creates a comprehensive knowledge graph with:
 
 **Relationship Types (25+):**
 
-*Core relationships:*
+_Core relationships:_
 
 - Artist → Recording (`PERFORMED_ON`): Artist credits on recordings
 - Artist → Release (`RELEASED`): Artist participation in releases
@@ -69,7 +69,7 @@ The MusicBrainz-to-Neo4j pipeline creates a comprehensive knowledge graph with:
 - Artist → Tag (`HAS_TAG`): Artist categorization
 - Release → Tag (`HAS_TAG`): Release tagging
 
-*Extended relationships (derived data):*
+_Extended relationships (derived data):_
 
 - Label → Release (`PUBLISHED`): Label publishing relationships
 - Label → Recording (`DISTRIBUTED`): Label distribution relationships

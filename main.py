@@ -2,21 +2,11 @@ import os
 import socket
 import time
 from pathlib import Path
-from dotenv import load_dotenv
-
-from utils.constants import (
-    CRITICAL_ENV_VARS,
-    DEFAULT_VECTOR_LABELS,
-    ERROR,
-    INFO,
-    SUCCESS,
-)
-
-# Load environment variables from .env file immediately
-load_dotenv(override=True)
+from typing import cast
 
 import typer
-from typing import cast
+from dotenv import load_dotenv
+
 from db.vector.build_vector_db import populate
 from utils.cli_helpers import (
     apply_demo_overrides,
@@ -25,9 +15,19 @@ from utils.cli_helpers import (
     split_labels_from_env,
     warn_on_blank_env_vars,
 )
+from utils.constants import (
+    CRITICAL_ENV_VARS,
+    DEFAULT_VECTOR_LABELS,
+    ERROR,
+    INFO,
+    SUCCESS,
+)
 from utils.helpers.convert_handler import handle_convert
 from utils.helpers.import_handler import handle_import_neo4j
 from utils.helpers.prepare_handler import handle_prepare
+
+# Load environment variables from .env file immediately
+load_dotenv(override=True)
 
 
 app = typer.Typer()
@@ -324,7 +324,10 @@ def _execute_full_build(config: str, demo: bool = False) -> None:
         if not ready_to_continue or not all(checklist.values()):
             failed_items = [key for key, passed in checklist.items() if not passed]
             if failed_items:
-                typer.secho("Build aborted. Fix the following checklist items before running again:", fg=ERROR)
+                typer.secho(
+                    "Build aborted. Fix the following checklist items before running again:",
+                    fg=ERROR,
+                )
                 for item in failed_items:
                     typer.secho(f"  - {item}", fg=ERROR)
             else:
