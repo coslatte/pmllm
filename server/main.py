@@ -49,7 +49,7 @@ class UserResponse(BaseModel):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class PreferencesInput(BaseModel):
@@ -69,7 +69,7 @@ class ChatResponse(BaseModel):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class MessageInput(BaseModel):
@@ -86,7 +86,7 @@ class MessageResponse(BaseModel):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # Helper to generate profile text
