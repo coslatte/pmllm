@@ -1,9 +1,9 @@
 import os
 import sys
 import uuid
-import json
-from typing import List, Optional
+from typing import List
 from datetime import datetime
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
@@ -20,7 +20,19 @@ from server.recommendation_engine import generate_recommendations_for_user
 # Load environment variables
 load_dotenv()
 
-app = FastAPI(title="PMLLM API", description="API for Music Recommendation RAG System")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize DB on startup
+    init_db()
+    yield
+
+
+app = FastAPI(
+    title="PMLLM API",
+    description="API for Music Recommendation RAG System",
+    lifespan=lifespan,
+)
 
 
 # Dependency
@@ -30,12 +42,6 @@ def get_db():
         yield db
     finally:
         db.close()
-
-
-# Initialize DB on startup
-@app.on_event("startup")
-def on_startup():
-    init_db()
 
 
 # Pydantic Models
@@ -124,7 +130,7 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
 
 
 @app.post("/preferences")
-def update_preferences(prefs: PreferencesInput, db: Session = Depends(get_db)):
+async def update_preferences(prefs: PreferencesInput, db: Session = Depends(get_db)):
     # Check if user exists
     user = db.query(User).filter(User.id == prefs.user_id).first()
     if not user:
@@ -148,7 +154,7 @@ def update_preferences(prefs: PreferencesInput, db: Session = Depends(get_db)):
 
     # Update Milvus
     try:
-        upsert_user_profile(prefs.user_id, profile_text)
+        await upsert_user_profile(prefs.user_id, profile_text)
     except Exception as e:
         print(f"Error updating Milvus: {e}")
         raise HTTPException(
@@ -163,8 +169,8 @@ def update_preferences(prefs: PreferencesInput, db: Session = Depends(get_db)):
 
 
 @app.get("/get_profile_vector")
-def get_profile(user_id: str):
-    data = get_user_profile_vector(user_id)
+async def get_profile(user_id: str):
+    data = await get_user_profile_vector(user_id)
     if not data:
         raise HTTPException(status_code=404, detail="Profile vector not found")
     return data
@@ -211,7 +217,7 @@ def get_chat_messages(chat_id: str, db: Session = Depends(get_db)):
 
 
 @app.post("/recommendations")
-def get_recommendations(user_id: str, db: Session = Depends(get_db)):
+async def get_recommendations(user_id: str, db: Session = Depends(get_db)):
     # 1. Get user preferences from DB
     prefs = db.query(Preference).filter(Preference.user_id == user_id).first()
     if not prefs:
@@ -224,7 +230,7 @@ def get_recommendations(user_id: str, db: Session = Depends(get_db)):
     }
 
     # 2. Get user profile text from Milvus (or regenerate it if missing)
-    vector_data = get_user_profile_vector(user_id)
+    vector_data = await get_user_profile_vector(user_id)
     if vector_data and vector_data.get("text"):
         profile_text = vector_data["text"]
     else:

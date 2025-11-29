@@ -45,19 +45,25 @@ class Preference(Base):
         self.fav_genres = json.dumps(genres)
 
     def get_genres(self) -> List[str]:
-        return json.loads(self.fav_genres) if self.fav_genres else []
+        if isinstance(self.fav_genres, str):
+            return json.loads(self.fav_genres)
+        return []
 
     def set_artists(self, artists: List[str]):
         self.fav_artists = json.dumps(artists)
 
     def get_artists(self) -> List[str]:
-        return json.loads(self.fav_artists) if self.fav_artists else []
+        if isinstance(self.fav_artists, str):
+            return json.loads(self.fav_artists)
+        return []
 
     def set_instruments(self, instruments: List[str]):
         self.fav_instruments = json.dumps(instruments)
 
     def get_instruments(self) -> List[str]:
-        return json.loads(self.fav_instruments) if self.fav_instruments else []
+        if isinstance(self.fav_instruments, str):
+            return json.loads(self.fav_instruments)
+        return []
 
 
 class Chat(Base):

@@ -1,7 +1,7 @@
 import os
 import sys
 import time
-from typing import List, Dict, Any
+from typing import Dict, Any, Optional
 from pymilvus import (
     connections,
     FieldSchema,
@@ -21,7 +21,7 @@ MILVUS_HOST = os.getenv("MILVUS_HOST", "127.0.0.1")
 MILVUS_PORT = os.getenv("MILVUS_PORT", "19530")
 
 
-def get_milvus_collection() -> Collection:
+async def get_milvus_collection() -> Collection:
     """Connects to Milvus and returns the user profile collection."""
 
     # Connect if not connected
@@ -53,17 +53,17 @@ def get_milvus_collection() -> Collection:
             "metric_type": "COSINE",
             "params": {"nlist": 128},
         }
-        collection.create_index("embedding", index_params)
+        await collection.create_index("embedding", index_params)
     else:
         collection = Collection(COLLECTION_NAME)
 
-    collection.load()
+        collection.load()
     return collection
 
 
-def upsert_user_profile(user_id: str, profile_text: str):
+async def upsert_user_profile(user_id: str, profile_text: str):
     """Generates embedding for profile text and upserts into Milvus."""
-    collection = get_milvus_collection()
+    collection = await get_milvus_collection()
 
     # Generate embedding
     vector = embed(profile_text)
@@ -85,11 +85,11 @@ def upsert_user_profile(user_id: str, profile_text: str):
     collection.flush()
 
 
-def get_user_profile_vector(user_id: str) -> Dict[str, Any]:
+async def get_user_profile_vector(user_id: str) -> Optional[Dict[str, Any]]:
     """Retrieves the user profile vector and text from Milvus."""
-    collection = get_milvus_collection()
+    collection = await get_milvus_collection()
 
-    res = collection.query(
+    res = await collection.query(
         expr=f"id == '{user_id}'", output_fields=["text", "embedding", "updated_at"]
     )
 
