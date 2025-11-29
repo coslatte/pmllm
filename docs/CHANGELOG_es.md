@@ -2,6 +2,10 @@
 
 Este archivo documenta todos los cambios realizados en el proyecto, especialmente aquellos implementados por agentes.
 
+## 2025-11-29
+
+- **Especificación de Recomendaciones**: Se agregó `docs/RECOMMENDATION_SYSTEM.md` con el prompt base, el esquema JSON y el flujo para planes de álbumes que combinan Neo4j (cerebro lógico) con Milvus (cerebro intuitivo) y Gemma 3. El documento describe los insumos requeridos, el manejo de fallos y cómo entregar de 5 a 10 recomendaciones explicables.
+
 ## 2025-11-26
 
 - **Simplificación de Colores CLI**: Se eliminó `utils/constants/cli_colors.py` y se actualizó `main.py` para usar `typer.colors` directamente, evitando una capa innecesaria en la experiencia de línea de comandos.
