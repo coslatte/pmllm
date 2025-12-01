@@ -62,6 +62,94 @@ REL_HEADERS: Dict[str, str] = {
     "release_tag_rel_header.csv": ":START_ID(Release),:END_ID(Tag),:TYPE",
 }
 
+EXTENDED_RELATIONSHIPS = [
+    (
+        "l_label_release",
+        "label_release_relationships.csv",
+        ":START_ID(Label),:END_ID(Release),:TYPE",
+    ),
+    (
+        "l_label_recording",
+        "label_recording_relationships.csv",
+        ":START_ID(Label),:END_ID(Recording),:TYPE",
+    ),
+    (
+        "l_artist_place",
+        "artist_place_relationships.csv",
+        ":START_ID(Artist),:END_ID(Place),:TYPE",
+    ),
+    (
+        "l_release_place",
+        "release_place_relationships.csv",
+        ":START_ID(Release),:END_ID(Place),:TYPE",
+    ),
+    (
+        "l_recording_place",
+        "recording_place_relationships.csv",
+        ":START_ID(Recording),:END_ID(Place),:TYPE",
+    ),
+    (
+        "l_artist_event",
+        "artist_event_relationships.csv",
+        ":START_ID(Artist),:END_ID(Event),:TYPE",
+    ),
+    (
+        "l_release_event",
+        "release_event_relationships.csv",
+        ":START_ID(Release),:END_ID(Event),:TYPE",
+    ),
+    (
+        "l_recording_event",
+        "recording_event_relationships.csv",
+        ":START_ID(Recording),:END_ID(Event),:TYPE",
+    ),
+    (
+        "l_artist_genre",
+        "artist_genre_relationships.csv",
+        ":START_ID(Artist),:END_ID(Genre),:TYPE",
+    ),
+    (
+        "l_release_genre",
+        "release_genre_relationships.csv",
+        ":START_ID(Release),:END_ID(Genre),:TYPE",
+    ),
+    (
+        "l_recording_genre",
+        "recording_genre_relationships.csv",
+        ":START_ID(Recording),:END_ID(Genre),:TYPE",
+    ),
+    (
+        "l_artist_instrument",
+        "artist_instrument_relationships.csv",
+        ":START_ID(Artist),:END_ID(Instrument),:TYPE",
+    ),
+    (
+        "l_recording_url",
+        "recording_url_relationships.csv",
+        ":START_ID(Recording),:END_ID(Url),:TYPE",
+    ),
+    (
+        "l_release_url",
+        "release_url_relationships.csv",
+        ":START_ID(Release),:END_ID(Url),:TYPE",
+    ),
+    (
+        "l_artist_url",
+        "artist_url_relationships.csv",
+        ":START_ID(Artist),:END_ID(Url),:TYPE",
+    ),
+    (
+        "l_work_url",
+        "work_url_relationships.csv",
+        ":START_ID(Work),:END_ID(Url),:TYPE",
+    ),
+    (
+        "l_label_url",
+        "label_url_relationships.csv",
+        ":START_ID(Label),:END_ID(Url),:TYPE",
+    ),
+]
+
 FILES_TO_LABEL: Dict[str, str] = {
     "artist": "Artist",
     "recording": "Recording",
@@ -637,96 +725,7 @@ def prepare_extended_relationships(
         getenv("QUIET_MISSING_EXTENDED_RELATIONSHIPS", "false").lower() == "true"
     )
 
-    # Extended relationship files to process
-    extended_relations = [
-        (
-            "l_label_release",
-            "label_release_relationships.csv",
-            ":START_ID(Label),:END_ID(Release),:TYPE",
-        ),
-        (
-            "l_label_recording",
-            "label_recording_relationships.csv",
-            ":START_ID(Label),:END_ID(Recording),:TYPE",
-        ),
-        (
-            "l_artist_place",
-            "artist_place_relationships.csv",
-            ":START_ID(Artist),:END_ID(Place),:TYPE",
-        ),
-        (
-            "l_release_place",
-            "release_place_relationships.csv",
-            ":START_ID(Release),:END_ID(Place),:TYPE",
-        ),
-        (
-            "l_recording_place",
-            "recording_place_relationships.csv",
-            ":START_ID(Recording),:END_ID(Place),:TYPE",
-        ),
-        (
-            "l_artist_event",
-            "artist_event_relationships.csv",
-            ":START_ID(Artist),:END_ID(Event),:TYPE",
-        ),
-        (
-            "l_release_event",
-            "release_event_relationships.csv",
-            ":START_ID(Release),:END_ID(Event),:TYPE",
-        ),
-        (
-            "l_recording_event",
-            "recording_event_relationships.csv",
-            ":START_ID(Recording),:END_ID(Event),:TYPE",
-        ),
-        (
-            "l_artist_genre",
-            "artist_genre_relationships.csv",
-            ":START_ID(Artist),:END_ID(Genre),:TYPE",
-        ),
-        (
-            "l_release_genre",
-            "release_genre_relationships.csv",
-            ":START_ID(Release),:END_ID(Genre),:TYPE",
-        ),
-        (
-            "l_recording_genre",
-            "recording_genre_relationships.csv",
-            ":START_ID(Recording),:END_ID(Genre),:TYPE",
-        ),
-        (
-            "l_artist_instrument",
-            "artist_instrument_relationships.csv",
-            ":START_ID(Artist),:END_ID(Instrument),:TYPE",
-        ),
-        (
-            "l_recording_url",
-            "recording_url_relationships.csv",
-            ":START_ID(Recording),:END_ID(Url),:TYPE",
-        ),
-        (
-            "l_release_url",
-            "release_url_relationships.csv",
-            ":START_ID(Release),:END_ID(Url),:TYPE",
-        ),
-        (
-            "l_artist_url",
-            "artist_url_relationships.csv",
-            ":START_ID(Artist),:END_ID(Url),:TYPE",
-        ),
-        (
-            "l_work_url",
-            "work_url_relationships.csv",
-            ":START_ID(Work),:END_ID(Url),:TYPE",
-        ),
-        (
-            "l_label_url",
-            "label_url_relationships.csv",
-            ":START_ID(Label),:END_ID(Url),:TYPE",
-        ),
-    ]
-
-    for relation_file, output_file, header in extended_relations:
+    for relation_file, output_file, _header in EXTENDED_RELATIONSHIPS:
         if relation_file in relationships_to_skip:
             print(f"⏭️  Skipping relationship: {relation_file}")
             continue

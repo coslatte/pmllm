@@ -138,7 +138,6 @@ The pipeline supports processing additional MusicBrainz "derived" data to create
 
 ## Vector Build and Testing
 
-<<<<<<< HEAD
 | Variable                      | Default  | Description                                                                            |
 | ----------------------------- | -------- | -------------------------------------------------------------------------------------- |
 | `VECTOR_BUILD_WORKERS`        | `4`      | Number of workers for vector building                                                  |
@@ -146,17 +145,6 @@ The pipeline supports processing additional MusicBrainz "derived" data to create
 | `TEST_MODE`                   | `true`   | Enable test mode (uses `TEST_SAMPLE_PERCENT` instead of full set)                      |
 | `TEST_SAMPLE_PERCENT`         | `1.0`    | Sampling percentage for test mode                                                      |
 | `VECTOR_LABELS`               | _(list)_ | Comma-separated list of Neo4j labels to embed (defaults cover Artist, Recording, etc.) |
-=======
-| Variable                      | Default | Description                                                      |
-| ----------------------------- | ------- | ---------------------------------------------------------------- |
-| `VECTOR_BUILD_WORKERS`        | `-`     | Optional override for worker count. Leave unset to auto-tune     |
-| `VECTOR_BUILD_WORKER_PERCENT` | `0.75`  | Fraction of usable CPU cores (after caps) allocated to workers   |
-| `VECTOR_BUILD_MAX_CORES`      | `8`     | Maximum number of cores considered when auto-tuning worker count |
-| `VECTOR_BUILD_SAMPLE_PERCENT` | `100.0` | Percentage of data to use when building the vector database      |
-| `TEST_MODE`                   | `true`  | Enable test mode (uses `TEST_SAMPLE_PERCENT` instead of full set |
-| `TEST_SAMPLE_PERCENT`         | `1.0`   | Sampling percentage for test mode                                |
-| `VECTOR_LABELS`               | *(list)*| Comma-separated list of Neo4j labels to embed (defaults cover Artist, Recording, etc.) |
->>>>>>> 21ede39059d08f549eeaffc6851c711dcb2e5c81
 
 ## Troubleshooting and Validation
 

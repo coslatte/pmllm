@@ -1,22 +1,13 @@
 import os
 from typing import Any, Dict, List
 
-import requests
-
+from .helper.llm_handler import generate_response
 from .vector_query import search
 from db.neo4j.neo4j_handler import query_graph
 
 
-LLM_API_URL = os.getenv(
-    "LLM_API_URL", "http://localhost:1234/v1/chat/completions"
-)
-LLM_MODEL = os.getenv(
-    "LLM_MODEL", "google/gemma-3-1b"
-)  # Name used in LM Studio
-
-
 def llm_generate(prompt: str) -> str:
-    """Generate a response using the LLM via LM Studio API.
+    """Generate a response using the local LLM.
 
     Args:
         prompt: The prompt text to send to the model
@@ -24,40 +15,10 @@ def llm_generate(prompt: str) -> str:
     Returns:
         The generated response text or an error message
     """
-    # LM Studio uses OpenAI-compatible API structure
-    payload = {
-        "model": LLM_MODEL,
-        "messages": [
-            {"role": "system", "content": "You are a helpful music expert assistant."},
-            {"role": "user", "content": prompt},
-        ],
-        "temperature": 0.7,
-        "stream": False,
-    }
-
     try:
-        response = requests.post(LLM_API_URL, json=payload, timeout=30)
-        response.raise_for_status()
-        data: Dict[str, Any] = response.json()
-        choice_list = data.get("choices")
-        if not isinstance(choice_list, list) or not choice_list:
-            raise ValueError("LLM response missing choices list")
-        first_choice = choice_list[0]
-        if not isinstance(first_choice, dict):
-            raise ValueError("LLM response choice is malformed")
-        message = first_choice.get("message", {})
-        if not isinstance(message, dict):
-            raise ValueError("LLM response message is malformed")
-        content = message.get("content")
-        if not isinstance(content, str):
-            raise ValueError("LLM response content missing")
-        return content
-    except requests.exceptions.RequestException as e:
-        return f"Error connecting to LLM service: {e}"
-    except (KeyError, IndexError) as e:
-        return f"Error parsing LLM response: {e}"
+        return generate_response(prompt)
     except Exception as e:
-        return f"Unexpected error generating response: {e}"
+        return f"Error generating response with local LLM: {e}"
 
 
 def get_graph_context(ids: List[int]) -> List[str]:

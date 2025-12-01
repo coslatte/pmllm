@@ -23,6 +23,7 @@ from utils.constants import (
     SUCCESS,
 )
 from utils.helpers.convert_handler import handle_convert
+from utils.helpers.desktop_bundle_handler import create_desktop_bundle
 from utils.helpers.import_handler import handle_import_neo4j
 from utils.helpers.prepare_handler import handle_prepare
 
@@ -147,6 +148,54 @@ def prepare_neo4j(
             typer.echo(
                 f"  - {Path(output_dir).resolve()}/derived/relationships/ (derived relationship files)"
             )
+    except Exception as e:
+        typer.secho(f"Error: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+
+
+@app.command("prepare-desktop")
+def prepare_desktop(
+    output_dir: str = typer.Option(
+        os.getenv("OUTPUT_DIR", "output"),
+        help="Base output directory produced by `prepare-neo4j`",
+    ),
+    bundle_dir: str = typer.Option(
+        None,
+        help="Destination directory for the Neo4j Desktop bundle (defaults to OUTPUT_DIR/neo4j_desktop)",
+    ),
+    delimiter: str = typer.Option(
+        os.getenv("DELIMITER", "\t"),
+        help="Delimiter used in the CSV files (must match the prepare step)",
+    ),
+    encoding: str = typer.Option(
+        os.getenv("ENCODING", "utf-8"),
+        help="Encoding used in the CSV files",
+    ),
+    include_derived_nodes: bool = typer.Option(
+        True,
+        help="Include derived labeled nodes (labels, mediums, etc.) if they exist",
+    ),
+    include_extended_relationships: bool = typer.Option(
+        True,
+        help="Include extended relationship files generated under derived/relationships",
+    ),
+):
+    """Create header+data CSVs that Neo4j Desktop can import via drag-and-drop."""
+
+    try:
+        summary = create_desktop_bundle(
+            output_dir=Path(output_dir),
+            bundle_dir=Path(bundle_dir) if bundle_dir else None,
+            delimiter="\t" if delimiter == "\\t" else delimiter,
+            encoding=encoding,
+            include_derived_nodes=include_derived_nodes,
+            include_extended_relationships=include_extended_relationships,
+        )
+
+        typer.secho("✓ Neo4j Desktop bundle created", fg=typer.colors.GREEN)
+        typer.echo(f"Nodes written: {len(summary['nodes'])}")
+        typer.echo(f"Relationships written: {len(summary['relationships'])}")
+        typer.echo(f"Bundle directory: {summary['nodes'][0].parent.parent}")
     except Exception as e:
         typer.secho(f"Error: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1)

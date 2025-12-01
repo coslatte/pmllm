@@ -2,6 +2,12 @@
 
 This file documents all changes made to the project, especially those implemented by agents.
 
+## 2025-12-01
+
+- **Local LLM Integration**: Implemented direct interaction with LLM models using Transformers library instead of LM Studio API. Added `db/vector/helper/llm_handler.py` for local model loading and generation. Updated `rag_pipeline.py` to use local LLM. Added new environment variables: `USE_LOCAL_LLM`, `LLM_MODEL_NAME`, `LLM_DEVICE`, `LLM_MAX_NEW_TOKENS`, `LLM_TEMPERATURE`. Updated dependencies in `pyproject.toml` to include `transformers`, `torch`, `accelerate`.
+- **Neo4j Desktop Bundle CLI**: Added the `prepare-desktop` command to `main.py`, plus `utils/helpers/desktop_bundle_handler.py`, so we can merge headers and data into Neo4j Desktop–ready CSVs (nodes + relationships) under `output/neo4j_desktop` for simple drag-and-drop imports.
+- **Data Distribution Documentation**: Added `docs/DISTRIBUCION_DATOS.md` documenting the data architecture for chat database, user preferences, and recommendation system, including SQLite schema, data flow, and distribution patterns.
+
 ## 2025-11-29
 
 - **Recommendation Spec**: Added `docs/RECOMMENDATION_SYSTEM.md` detailing the prompt skeleton, JSON schema, and album-plan workflow that combines Neo4j (logical brain) with Milvus (intuitive brain) plus Gemma 3. The document explains required inputs, failure handling, and how to deliver 5–10 explainable recommendations.

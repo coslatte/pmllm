@@ -5,6 +5,8 @@ This is a Retrieval-Augmented Generation (RAG) system for music data using Neo4j
 
 ## Architecture
 - **CLI Entry**: `main.py` (Typer-based commands: build, build-vector, query)
+- **API Server**: `server/main.py` (FastAPI backend for frontend communication)
+- **Frontend**: React application (undocumented code, connects via REST API)
 - **Graph DB**: `db/neo4j/` - Neo4j handlers for importing/querying music relationships (logical brain for exact relations)
 - **Vector Ops**: `db/vector/` - Embeddings via LM Studio API, Milvus storage, RAG pipeline (intuitive brain for semantic similarity)
 - **Utils**: `utils/` - Data preparation, file management, constants
@@ -22,13 +24,15 @@ The system uses a "two brains and one voice" metaphor: Neo4j as logical brain (e
 - **Multiprocessing**: 3-phase pipeline (import/transform/save) with queues (see `build_vector_db.py`)
 - **Embeddings**: Batch API calls to LM Studio, fallback to sequential (see `embedder.py`); use `text-embedding-qwen3-embedding-0.6b` model
 - **CLI**: Typer commands with `--help`, load dotenv early in `main.py`
-- **Agent Guidelines**: When unsure, return 'I don't know' and suggest data collection. Include provenance/confidence in answers. Document changes in `docs/CHANGELOG.md` and `docs/CHANGELOG_es.md`. Use 'uv run python' for commands.
+- **Agent Guidelines**: When unsure, return 'I don't know' and suggest data collection. Include provenance/confidence in answers. Document changes in `docs/CHANGELOG.md` and `docs/es_ES/CHANGELOG.md`. Use 'uv run python' for commands.
+- **Documentation**: Maintain English documentation in `docs/` and Spanish translations in `docs/es_ES/`. Ensure `API_DOCUMENTATION.md` reflects the current API state. Always update both English and Spanish documentation when making changes.
 
 ## Workflows
 - **Setup**: `uv sync` to install deps, `docker-compose up -d` for Milvus
 - **Import Data**: `uv run python main.py build --config .env` (TSV to Neo4j)
 - **Build Vectors**: `uv run python main.py build-vector` (interactive prompts for CPU/sampling)
 - **Query**: `uv run python main.py query "question"`
+- **Run API**: `uv run python server/main.py`
 - **Debug**: Check `.env` for TEST_MODE (1% sampling), logs in terminal
 
 ## Conventions
@@ -36,7 +40,7 @@ The system uses a "two brains and one voice" metaphor: Neo4j as logical brain (e
 - **Error Handling**: Try/except with logging, raise for critical errors
 - **Async**: Multiprocessing over threading for CPU-bound tasks
 - **Config**: All via env vars, no hardcoded values
-- **Docs**: Update `docs/CHANGELOG.md` for changes
+- **Docs**: Update `docs/CHANGELOG.md` for changes. Duplicate docs in `docs/es_ES/`.
 - **Contracts**: Content recommender (user_profile/history/query -> items/explanations/confidence), Connector (user_profile/goals -> candidates/reasons/confidence), QA responder (question -> answer/sources/confidence)
 
 ## Examples

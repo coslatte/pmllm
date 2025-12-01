@@ -71,13 +71,21 @@ uv run python main.py build
 
 ```bash
 # Convert TSV files to CSV
-uv run python main.py convert mbdump --out out_csv
+uv run python main.py convert music_metadata --out output/converted/core
+uv run python main.py convert music_derived_metadata --out output/converted/derived
 
 # Prepare data for Neo4j
-uv run python main.py prepare-neo4j --sample-percent 50.0
+uv run python main.py prepare-neo4j \
+  --core-dir output/converted/core \
+  --derived-dir output/converted/derived \
+  --output-dir output \
+  --sample-percent 50.0
+
+# (Optional) build Neo4j Desktop bundle
+uv run python main.py prepare-desktop --output-dir output --bundle-dir output/neo4j_desktop
 
 # Import to Neo4j
-uv run python main.py import-neo4j --verify
+uv run python main.py import-neo4j --output-dir output --verify
 
 # Build vector database
 uv run python main.py build-vector
@@ -90,14 +98,15 @@ uv run python main.py query "What artists are similar to Queen?"
 
 ### Main Commands
 
-| Command         | Description                                                           |
-| --------------- | --------------------------------------------------------------------- |
-| `build`         | Full pipeline (convert → prepare → import → vector build). Supports `--demo` |
-| `convert`       | Convert TSV files to CSV format                       |
-| `prepare-neo4j` | Generate headers, labels, and relationships           |
-| `import-neo4j`  | Run Neo4j bulk import                                 |
-| `build-vector`  | Build vector database from Neo4j nodes                |
-| `query`         | Query the RAG system                                 |
+| Command            | Description                                                                            |
+| ------------------ | -------------------------------------------------------------------------------------- |
+| `build`            | Full pipeline (convert → prepare → import → vector build). Supports `--demo`           |
+| `convert`          | Convert TSV files to CSV format                                                        |
+| `prepare-neo4j`    | Generate headers, labels, and relationships from converted CSVs                        |
+| `prepare-desktop`  | Merge headers + data into Neo4j Desktop–ready CSVs for drag-and-drop imports          |
+| `import-neo4j`     | Run Neo4j bulk import (reads from `output/core/*`)                                     |
+| `build-vector`     | Build vector database from Neo4j nodes and store embeddings in Milvus                 |
+| `query`            | Query the RAG system                                                                   |
 
 ### Build Command
 
@@ -141,19 +150,35 @@ python main.py prepare-neo4j [OPTIONS]
 
 **Options:**
 
-| Option                    | Default         | Description                          |
-| ------------------------- | --------------- | ------------------------------------ |
-| `--mbdump DIR`            | `mbdump`        | Directory with MusicBrainz TSV files |
-| `--headers-dir DIR`       | `neo4j_headers` | Output directory for headers         |
-| `--labeled-dir DIR`       | `labeled`       | Output directory for labeled data    |
-| `--relationships-dir DIR` | `relationships` | Output directory for relationships   |
-| `--sample-percent FLOAT`  | `100.0`         | Sample percentage (0-100)            |
-| `--sample-seed INT`       | `42`            | Random seed for sampling             |
-| `--delimiter STR`         | `\t`            | Input file delimiter (must be a single character, e.g., tab)                 |
-| `--encoding STR`          | `utf-8`         | File encoding                        |
-| `--skip-headers`          | -               | Skip header generation               |
-| `--skip-labels`           | -               | Skip labeled data generation         |
-| `--skip-relationships`    | -               | Skip relationship generation         |
+| Option                   | Default (env)       | Description |
+| ------------------------ | ------------------ | ----------- |
+| `--core-dir PATH`        | `TSV_CORE_DIR` \\ `music_metadata` | Directory containing the converted core CSV/TSV files |
+| `--derived-dir PATH`     | `TSV_DERIVED_DIR` \\ `music_derived_metadata` | Directory containing derived CSV/TSV files (optional) |
+| `--output-dir PATH`      | `OUTPUT_DIR` \\ `output` | Destination for generated `core/` and `derived/` subdirectories |
+| `--sample-percent FLOAT` | `SAMPLE_PERCENT` \\ `100.0` | Percentage of rows to keep (0-100) |
+| `--sample-seed INT`      | `SAMPLE_SEED` \\ `42` | Deterministic sampling seed |
+| `--delimiter STR`        | `DELIMITER` \\ `\t` | Delimiter used in the source files (supports literal `\t`) |
+| `--encoding STR`         | `ENCODING` \\ `utf-8` | File encoding |
+| `--skip-headers`         | env `SKIP_HEADERS=false` | Skip header generation |
+| `--skip-labels`          | env `SKIP_LABELS=false` | Skip labeled data generation |
+| `--skip-relationships`   | env `SKIP_RELATIONSHIPS=false` | Skip relationship generation |
+
+### Prepare-Desktop Command
+
+```bash
+python main.py prepare-desktop [OPTIONS]
+```
+
+This command copies the generated headers and data into `output/neo4j_desktop/{nodes,relationships}` with header rows attached, so Neo4j Desktop can import them via drag-and-drop.
+
+| Option                               | Default | Description |
+| ------------------------------------ | ------- | ----------- |
+| `--output-dir PATH`                  | `OUTPUT_DIR` \\ `output` | Base directory that already contains `core/` + `derived/` artifacts |
+| `--bundle-dir PATH`                  | `output/neo4j_desktop` | Destination folder for Desktop-ready CSVs |
+| `--delimiter STR`                    | `DELIMITER` \\ `\t` | Delimiter to embed in the header rows |
+| `--encoding STR`                     | `ENCODING` \\ `utf-8` | Encoding for the merged CSVs |
+| `--include-derived-nodes / --no-...` | `True` | Copy labeled nodes from `derived/` if present |
+| `--include-extended-relationships / --no-...` | `True` | Copy extended relationship CSVs from `derived/relationships` |
 
 ### Import-Neo4j Command
 
@@ -163,24 +188,22 @@ python main.py import-neo4j [OPTIONS]
 
 **Options:**
 
-| Option                      | Default          | Description                |
-| --------------------------- | ---------------- | -------------------------- |
-| `--headers-dir DIR`         | `neo4j_headers`  | Headers directory          |
-| `--labeled-dir DIR`         | `labeled`        | Labeled data directory     |
-| `--relationships-dir DIR`   | `relationships`  | Relationships directory    |
-| `--db-name STR`             | `musicbrainz.db` | Neo4j database name        |
-| `--delimiter STR`           | `\t`             | CSV delimiter              |
-| `--array-delimiter STR`     | `;`              | Array field delimiter      |
-| `--allow-bad-relationships` | -                | Allow broken relationships |
-| `--multiline-fields`        | `True`           | Treat fields as multiline  |
-| `--verify`                  | -                | Run verification queries   |
-| `--user STR`                | `neo4j`          | Neo4j username             |
-| `--password STR`            | -                | Neo4j password             |
-| `--host STR`                | `localhost`      | Neo4j host                 |
-| `--port INT`                | `7687`           | Neo4j port                 |
-| `--neo4j-bin-path PATH`     | -                | Neo4j bin directory        |
-| `--java-home PATH`          | -                | Java home directory        |
-| `--legacy-import`           | -                | Use legacy import          |
+| Option                      | Default (env)                    | Description |
+| --------------------------- | -------------------------------- | ----------- |
+| `--output-dir PATH`         | `OUTPUT_DIR` \\ `output`        | Base directory containing `core/headers`, `core/labeled`, and `core/relationships` |
+| `--db-name STR`             | `DB_NAME` \\ `musicbrainz.db`   | Target Neo4j database name (without `.db` when issuing `:use`) |
+| `--delimiter STR`           | `DELIMITER` \\ `\t`            | CSV delimiter handed to `neo4j-admin` |
+| `--array-delimiter STR`     | `ARRAY_DELIMITER` \\ `;`        | Array field delimiter |
+| `--allow-bad-relationships` | `ALLOW_BAD_RELATIONSHIPS=false` | Do not fail on dangling relationships |
+| `--multiline-fields`        | `MULTILINE_FIELDS=true`         | Treat fields as multiline when importing |
+| `--verify`                  | `VERIFY=false`                  | Run sanity queries after import |
+| `--user STR`                | `NEO4J_USER` \\ `neo4j`        | Neo4j username for verification |
+| `--password STR`            | `NEO4J_PASSWORD`                | Neo4j password |
+| `--host STR`                | `NEO4J_HOST` \\ `localhost`    | Neo4j host |
+| `--port INT`                | `NEO4J_PORT` \\ `7687`         | Bolt port for verification |
+| `--neo4j-bin-path PATH`     | `NEO4J_BIN_PATH`                | Explicit path to the Neo4j `bin/` directory |
+| `--java-home PATH`          | `JAVA_HOME`                     | Java installation to use for the import |
+| `--legacy-import`           | `LEGACY_IMPORT=false`           | Use the legacy `neo4j-admin import` syntax |
 
 **Nota sobre la base de datos Neo4j:**
 
@@ -214,11 +237,11 @@ nano .env
 
 ```bash
 # Input/Output directories
-TSV_DIR=mbdump
-CSV_OUT_DIR=out_csv
-HEADERS_DIR=neo4j_headers
-LABELED_DIR=labeled
-RELATIONSHIPS_DIR=relationships
+TSV_CORE_DIR=/data/musicbrainz/core
+TSV_DERIVED_DIR=/data/musicbrainz/derived
+OUTPUT_DIR=output
+CSV_CORE_DIR=${OUTPUT_DIR}/converted/core
+CSV_DERIVED_DIR=${OUTPUT_DIR}/converted/derived
 
 # Sampling (optional)
 SAMPLE_PERCENT=100.0
@@ -230,14 +253,18 @@ NEO4J_USER=neo4j
 NEO4J_PASSWORD=your_password
 NEO4J_HOST=localhost
 NEO4J_PORT=7687
+
+# Vector build
+VECTOR_LABELS=Artist,Recording,Release,Tag
 ```
 
 ### Build Process Steps
 
-1. **Conversion**: Extract TAR archives (if present) and convert TSV files to CSV working sets (`CSV_CORE_DIR`, `CSV_DERIVED_DIR`).
-2. **Preparation**: Generates Neo4j headers, labeled rows, and relationship files with optional sampling.
-3. **Neo4j Import**: Performs `neo4j-admin` bulk import plus optional verification queries.
-4. **Vector Build**: Streams nodes from Neo4j, builds LM Studio embeddings, and writes vectors to Milvus for RAG.
+1. **Conversion**: Extract TAR archives (if present) and convert the raw dumps pointed to by `TSV_CORE_DIR` / `TSV_DERIVED_DIR` into CSV working sets (`CSV_CORE_DIR`, `CSV_DERIVED_DIR`).
+2. **Preparation**: Generate Neo4j headers, labeled rows, and relationship files in `OUTPUT_DIR/core` (optionally sampling rows for demos).
+3. **Desktop bundle (optional)**: Run `prepare-desktop` to copy the prepared files into `OUTPUT_DIR/neo4j_desktop` with inline headers for the Neo4j Desktop drag-and-drop importer.
+4. **Neo4j Import**: Execute `neo4j-admin database import` via `import-neo4j`, then optionally run verification queries through Bolt.
+5. **Vector Build**: Stream nodes from Neo4j, build LM Studio embeddings, and write vectors to Milvus for RAG.
 
 ### Build Output
 
@@ -296,16 +323,23 @@ python main.py build --config my_config.env
 
 ```bash
 # Convert files
-python main.py convert /data/musicbrainz --out converted_csv
+python main.py convert /data/musicbrainz/core --out converted/core
+python main.py convert /data/musicbrainz/derived --out converted/derived
 
 # Prepare with 25% sample
 python main.py prepare-neo4j \
-  --mbdump /data/musicbrainz \
+  --core-dir converted/core \
+  --derived-dir converted/derived \
+  --output-dir output \
   --sample-percent 25.0 \
   --sample-seed 123
 
+# Bundle for Neo4j Desktop (optional)
+python main.py prepare-desktop --output-dir output --bundle-dir output/neo4j_desktop
+
 # Import with verification
 python main.py import-neo4j \
+  --output-dir output \
   --verify \
   --password mypassword
 ```
@@ -314,7 +348,9 @@ python main.py import-neo4j \
 
 ```bash
 # Full production build
-echo "TSV_DIR=/data/mb-dump-2024" > .env
+echo "TSV_CORE_DIR=/data/mb-dump-2024/core" > .env
+echo "TSV_DERIVED_DIR=/data/mb-dump-2024/derived" >> .env
+echo "OUTPUT_DIR=/data/mb-dump-2024/output" >> .env
 echo "SAMPLE_PERCENT=100.0" >> .env
 echo "NEO4J_PASSWORD=production_password" >> .env
 

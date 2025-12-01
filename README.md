@@ -329,3 +329,38 @@ CREATE DATABASE musicbrainz IF NOT EXISTS
 Reemplaza `musicbrainz` con el nombre de base de datos especificado en `--db-name`. La importación masiva crea la base de datos automáticamente, pero estos comandos aseguran que esté disponible para consultas interactivas.
 
 See `docs/CLI_USAGE.md` for comprehensive CLI documentation including sampling modes, validation features, and advanced usage examples.
+
+## Operational Runbooks
+
+The following runbooks document the end-to-end flows the user asked for: (1) building CSV assets from raw dumps, (2) populating Milvus with embeddings, and (3) persisting chats plus generated recommendations.
+
+### 1. Raw Dumps → Neo4j CSV bundle
+
+1. **Prepare raw dumps**: Place the MusicBrainz TSV exports in `TSV_CORE_DIR` and (optionally) `TSV_DERIVED_DIR`, either via `.env` or CLI flags. Extract `.tar` archives so the `.tsv` files are reachable.
+2. **Convert to CSV working sets**: Run `uv run python main.py convert <path-to-tsv> --out <csv-dir>` for each dump (core and derived). This normalizes delimiters, lifts field-size limits, and keeps the files small enough for sampling.
+3. **Generate Neo4j headers + data**: Execute `uv run python main.py prepare-neo4j --core-dir <csv-core> --derived-dir <csv-derived> --output-dir output --sample-percent 100`. This produces
+  - `output/core/headers/*.csv`
+  - `output/core/labeled/labeled_*.csv`
+  - `output/core/relationships/*.csv`
+  - optional derived counterparts under `output/derived/...`
+4. **Create Neo4j Desktop bundle**: If you want drag-and-drop imports in Neo4j Desktop, run `uv run python main.py prepare-desktop --output-dir output --bundle-dir output/neo4j_desktop`. The helper copies the correct header row into each file so Neo4j Desktop can ingest them without additional setup.
+5. **Bulk import into Neo4j**: Use `uv run python main.py import-neo4j --output-dir output --db-name musicbrainz.db --verify`. The command wraps `neo4j-admin database import` (or legacy mode) and reruns sanity queries via `cypher-shell`.
+6. **Start Neo4j**: Launch Neo4j Desktop or your server process, confirm the Bolt endpoint is available, and run `:use system` → `CREATE DATABASE musicbrainz IF NOT EXISTS` → `:use musicbrainz` in Neo4j Browser to make the imported store queryable.
+
+### 2. Build the Milvus vector database
+
+1. **Bring dependencies online**: `docker-compose up -d` starts Milvus and MinIO. In LM Studio (or your embedding service) load the embedding model declared in `.env` (default `text-embedding-qwen3-embedding-0.6b`).
+2. **Ensure Neo4j is running**: The vector builder streams nodes directly from Neo4j, so the database created in the previous runbook must be online and reachable via Bolt.
+3. **Run the embedding job**: Execute `uv run python main.py build-vector --labels "Artist,Recording,Release,Tag"` (or let the command pull `VECTOR_LABELS` from `.env`). It reads batches of nodes, builds embeddings via LM Studio, and upserts them into Milvus (see `db/vector/build_vector_db.py`). The full `build` or `build --demo` command already calls this as Step 4.
+4. **Validate retrieval**: Optionally run `uv run python main.py query "question" --k 5` to ensure the RAG stack (Neo4j + Milvus + Gemma) returns grounded answers.
+
+### 3. Persist chats and generated recommendations
+
+The `server/` package exposes a FastAPI service that stores users, chats, and recommendations plus the per-user profile vectors used for personalization.
+
+1. **Start the API**: `uv run python -m uvicorn server.main:app --reload` initializes the SQLite database (`server/database.py` → `local_app.db`) and the Milvus collection `user_profile_vectors` (see `server/milvus_handler.py`).
+2. **Create a user**: `POST /users` with `{ "username": "alice" }` stores a UUID-tagged user row.
+3. **Capture preferences + vectorize**: `POST /preferences` with genre/artist/instrument arrays writes JSON blobs to SQLite, generates prose ("User likes ..."), and calls `upsert_user_profile` to store the vector in Milvus. You can retrieve the vector with `GET /get_profile_vector?user_id=<uuid>`.
+4. **Track chats**: `POST /chat` creates a chat session. Use `POST /message` to log each turn (role + content) and `GET /chat/{chat_id}/messages` to replay the conversation. This data becomes the audit trail for generated answers.
+5. **Request recommendations**: `POST /recommendations` with `user_id` fetches preferences, loads the user profile embedding, and invokes `server/recommendation_engine.py` (which in turn queries Neo4j + Milvus). The JSON response contains the recommended courses/connections plus the explanations required by our contracts.
+6. **Back up artifacts**: Snapshot `local_app.db` and, if needed, export the `user_profile_vectors` collection from Milvus to keep an auditable history of chats and generated outputs.
