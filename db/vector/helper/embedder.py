@@ -1,104 +1,60 @@
 import os
-from typing import Any, List
-import sys
+from typing import List, Sequence
+
 import requests
 
 # Configuration
-USE_LOCAL_EMBEDDING = os.getenv("USE_LOCAL_EMBEDDING", "true").lower() == "true"
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-embeddinggemma-300m-qat")
-EMBEDDING_URL = os.getenv("EMBEDDING_URL", "http://localhost:1234/v1/embeddings")
+EMBEDDING_API_URL = (
+    os.getenv("EMBEDDING_API_URL")
+    or os.getenv("EMBEDDING_URL")
+    or "http://localhost:9000/v1/embeddings"
+)
+EMBEDDING_API_KEY = os.getenv("EMBEDDING_API_KEY") or os.getenv("MODEL_API_KEY")
+EMBEDDING_TIMEOUT = float(os.getenv("EMBEDDING_API_TIMEOUT", "60"))
 
-_model = None
+
+def _build_headers() -> dict[str, str]:
+    headers = {"Content-Type": "application/json"}
+    if EMBEDDING_API_KEY:
+        headers["Authorization"] = f"Bearer {EMBEDDING_API_KEY}"
+    return headers
 
 
-def _get_local_model():
-    global _model
-    if _model is None:
-        try:
-            from sentence_transformers import SentenceTransformer
+def _call_embedding_endpoint(payload: dict) -> List[List[float]]:
+    response = requests.post(
+        EMBEDDING_API_URL,
+        json=payload,
+        headers=_build_headers(),
+        timeout=EMBEDDING_TIMEOUT,
+    )
+    response.raise_for_status()
+    data = response.json()
 
-            # 1. Try configured model OFFLINE
-            try:
-                print(f"Loading {EMBEDDING_MODEL} (offline)...")
-                _model = SentenceTransformer(EMBEDDING_MODEL, local_files_only=True)
-                return _model
-            except Exception as e:
-                print(f"Failed to load {EMBEDDING_MODEL} (offline): {e}")
+    embeddings_data = data.get("data")
+    if not embeddings_data:
+        raise RuntimeError("Embedding API response does not contain 'data'.")
 
-            # 2. Try configured model ONLINE
-            try:
-                if input(
-                    "Do you want to load the model online? [Y/n]"
-                ).lower().strip() in ("yes", "y"):
-                    print(f"Loading {EMBEDDING_MODEL} (online)...")
-                    _model = SentenceTransformer(EMBEDDING_MODEL)
-                    return _model
-                else:
-                    print("Exiting...")
-                    sys.exit(0)
-            except Exception as e:
-                print(f"Failed to load {EMBEDDING_MODEL}: {e}")
+    # Ensure deterministic ordering by index when provided
+    if isinstance(embeddings_data[0], dict) and "index" in embeddings_data[0]:
+        embeddings_data = sorted(embeddings_data, key=lambda item: item.get("index", 0))
 
-            # 3. Fallback
-            print("Falling back to 'all-mpnet-base-v2'...")
-            try:
-                _model = SentenceTransformer("sentence-transformers/all-mpnet-base-v2")
-                return _model
-            except Exception as e:
-                print(f"Failed to load fallback model: {e}")
-                _model = None
-
-        except ImportError:
-            print("sentence_transformers not installed.")
-            _model = None
-    return _model
+    vectors: List[List[float]] = []
+    for item in embeddings_data:
+        vector = item.get("embedding")
+        if not isinstance(vector, Sequence):
+            raise RuntimeError("Embedding item missing 'embedding' field")
+        vectors.append(list(vector))
+    return vectors
 
 
 def embed(text: str) -> List[float]:
-    """Return the embedding generated locally or via API.
+    """Return a single embedding vector produced by the model gateway."""
 
-    Args:
-        text: The text to embed
-
-    Returns:
-        A list of floats representing the embedding vector
-
-    Raises:
-        RuntimeError: If generation fails
-    """
-    if USE_LOCAL_EMBEDDING:
-        try:
-            model = _get_local_model()
-            if model:
-                # SentenceTransformer returns numpy array, convert to list
-                vector = model.encode(text).tolist()
-                return vector
-            else:
-                print("Local model not available. Falling back to API.")
-        except Exception as e:
-            print(f"Local embedding failed: {e}. Falling back to API.")
-            # Fallback to API flow below
-            pass
-
-    try:
-        response = requests.post(
-            EMBEDDING_URL, json={"model": EMBEDDING_MODEL, "input": text}, timeout=60
-        )
-        response.raise_for_status()
-        data = response.json()
-        vector = data["data"][0]["embedding"]
-        return list(vector)
-    except requests.exceptions.ConnectionError:
-        raise RuntimeError(
-            f"Could not connect to LM Studio at {EMBEDDING_URL}.\n"
-            "PLEASE ENSURE:\n"
-            "1. LM Studio is open.\n"
-            "2. The 'Local Server' (double arrow icon <->) is selected.\n"
-            "3. The green 'Start Server' button is clicked.\n"
-            "4. The port is set to 1234."
-        )
-    except Exception as e:
-        raise RuntimeError(f"Failed to get embedding from API: {e}")
+    vectors = _call_embedding_endpoint({"model": EMBEDDING_MODEL, "input": text})
+    if not vectors:
+        raise RuntimeError("Embedding API returned an empty result set")
+    return vectors[0]
 
 
 def embed_batch(texts: List[str]) -> List[List[float]]:
@@ -113,38 +69,9 @@ def embed_batch(texts: List[str]) -> List[List[float]]:
     if not texts:
         return []
 
-    if USE_LOCAL_EMBEDDING:
-        # Local model handles batching natively and efficiently
-        try:
-            model = _get_local_model()
-            if model:
-                vectors = model.encode(texts).tolist()
-                return vectors
-        except Exception as e:
-            print(f"Local batch embedding failed: {e}. Falling back to API.")
-            pass
-
-    # API Batching
-    # Try sending the list directly (OpenAI API compatible)
     try:
-        response = requests.post(
-            EMBEDDING_URL, json={"model": EMBEDDING_MODEL, "input": texts}, timeout=120
-        )
-        response.raise_for_status()
-        data = response.json()
-
-        # OpenAI format returns a list of objects, we need to sort by index to be safe
-        # though usually they are in order.
-        embeddings_data = data["data"]
-        # Sort by index just in case
-        embeddings_data.sort(key=lambda x: x["index"])
-
-        return [item["embedding"] for item in embeddings_data]
-
-    except requests.exceptions.ConnectionError:
-        raise RuntimeError(f"Could not connect to LM Studio at {EMBEDDING_URL}.")
-    except Exception as e:
-        # If batching fails (e.g. API doesn't support list input), fallback to sequential/parallel
-        # But LM Studio usually supports it.
-        print(f"Batch API failed ({e}), falling back to sequential...")
+        return _call_embedding_endpoint({"model": EMBEDDING_MODEL, "input": texts})
+    except Exception as exc:
+        # Fall back to sequential calls so we at least make progress during builds
+        print(f"Embedding batch request failed ({exc}); retrying sequentially.")
         return [embed(t) for t in texts]

@@ -1,24 +1,33 @@
+from __future__ import annotations
+
 import json
+import os
 from datetime import datetime
-from typing import List, Optional
+from typing import List
 
 from sqlalchemy import create_engine, Column, String, DateTime, ForeignKey, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 
-# SQLite setup
-SQLALCHEMY_DATABASE_URL = "sqlite:///./local_app.db"
+# SQLite / external database setup
+DEFAULT_DB_PATH = os.getenv("CHAT_DB_PATH", "./storage/local_app.db")
+if DEFAULT_DB_PATH.startswith("./"):
+    os.makedirs(os.path.dirname(DEFAULT_DB_PATH), exist_ok=True)
+
+SQLALCHEMY_DATABASE_URL = os.getenv(
+    "CHAT_DB_URL", f"sqlite:///{DEFAULT_DB_PATH}"
+)
+
+connect_args = {"check_same_thread": False} if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else {}
 
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    SQLALCHEMY_DATABASE_URL, connect_args=connect_args
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
 # Models
-
-
 class User(Base):
     __tablename__ = "users"
 

@@ -367,7 +367,7 @@ def _execute_full_build(config: str, demo: bool = False) -> None:
             info_color=INFO,
         )
         ready_to_continue = typer.confirm(
-            "Ready to continue? (raw dumps located, Neo4j stopped, Milvus + LM Studio embedding online, disk space OK)",
+            "Ready to continue? (raw dumps located, Neo4j stopped, Milvus + model gateway embedding online, disk space OK)",
             default=False,
         )
         if not ready_to_continue or not all(checklist.values()):
@@ -549,7 +549,7 @@ def _execute_full_build(config: str, demo: bool = False) -> None:
 
         # Step 4: Build the vector database (Milvus + embeddings)
         typer.secho(
-            "\nStep 4: Building Milvus vector database (requires LM Studio embedding model)",
+            "\nStep 4: Building Milvus vector database (requires the embedding API to be online)",
             fg=typer.colors.WHITE,
             bold=True,
         )
@@ -565,7 +565,7 @@ def _execute_full_build(config: str, demo: bool = False) -> None:
             bold=True,
         )
         typer.secho(
-            "Switch LM Studio to your conversational LLM before running `query`.",
+            "Switch the model gateway back to the conversational LLM before running `query`.",
             fg=INFO,
         )
 
@@ -597,7 +597,7 @@ def build(
     - MusicBrainz TSV dumps in TSV_CORE_DIR and TSV_DERIVED_DIR
     - Neo4j Desktop stopped (for bulk import)
     - Milvus + MinIO running (docker-compose up -d)
-    - LM Studio with embedding model active
+    - Model gateway container exposing the embedding endpoint
     - Sufficient disk space (recommended 20GB+)
 
     Use --demo for quick testing with reduced sampling.

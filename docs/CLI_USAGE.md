@@ -54,7 +54,7 @@ cp .env.example .env
 uv run python main.py build --demo
 ```
 
-`build --demo` now covers conversion → preparation → Neo4j import → vector build using LM Studio's embedding endpoint.
+`build --demo` now covers conversion → preparation → Neo4j import → vector build using the model gateway embedding endpoint.
 
 ### Full Automated Build
 
@@ -264,7 +264,7 @@ VECTOR_LABELS=Artist,Recording,Release,Tag
 2. **Preparation**: Generate Neo4j headers, labeled rows, and relationship files in `OUTPUT_DIR/core` (optionally sampling rows for demos).
 3. **Desktop bundle (optional)**: Run `prepare-desktop` to copy the prepared files into `OUTPUT_DIR/neo4j_desktop` with inline headers for the Neo4j Desktop drag-and-drop importer.
 4. **Neo4j Import**: Execute `neo4j-admin database import` via `import-neo4j`, then optionally run verification queries through Bolt.
-5. **Vector Build**: Stream nodes from Neo4j, build LM Studio embeddings, and write vectors to Milvus for RAG.
+5. **Vector Build**: Stream nodes from Neo4j, request embeddings from the model gateway, and write vectors to Milvus for RAG.
 
 ### Build Output
 
@@ -287,7 +287,7 @@ Step 3: Importing CSVs into Neo4j (neo4j-admin bulk import)
 ✓ Neo4j bulk import completed.
 ✓ Verification completed.
 
-Step 4: Building Milvus vector database (requires LM Studio embedding model)
+Step 4: Building Milvus vector database (requires the model gateway container)
 ✓ Vector DB build completed!
 
 🎉 Build finished! Neo4j + Milvus are ready for RAG queries.

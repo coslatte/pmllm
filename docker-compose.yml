@@ -57,6 +57,53 @@ services:
     networks:
       - pmllm-net
 
+  ###########################
+  ### MODEL GATEWAY STACK ###
+  ###########################
+
+  model-gateway:
+    container_name: pmllm-model-gateway
+    build:
+      context: .
+      dockerfile: model_gateway/Dockerfile
+    env_file:
+      - .env
+    environment:
+      MODEL_GATEWAY_EMBEDDING_MODEL: ${MODEL_GATEWAY_EMBEDDING_MODEL:-text-embedding-embeddinggemma-300m-qat}
+      MODEL_GATEWAY_LLM_MODEL: ${MODEL_GATEWAY_LLM_MODEL:-gemma-3-1b-it-qat}
+      MODEL_GATEWAY_DEVICE: ${MODEL_GATEWAY_DEVICE:-cpu}
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./data/model_gateway/cache:/root/.cache/huggingface
+    networks:
+      - pmllm-net
+
+  ###############################
+  ### CHAT & PREFERENCE STORE ###
+  ###############################
+
+  recommender-api:
+    container_name: pmllm-recommender-api
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    env_file:
+      - .env
+    environment:
+      CHAT_DB_PATH: /app/storage/local_app.db
+      LLM_API_URL: http://pmllm-model-gateway:9000/v1/chat/completions
+      EMBEDDING_API_URL: http://pmllm-model-gateway:9000/v1/embeddings
+    ports:
+      - "8080:8080"
+    depends_on:
+      - milvus-standalone
+      - model-gateway
+    volumes:
+      - ./data/chat_storage:/app/storage
+    networks:
+      - pmllm-net
+
 networks:
   pmllm-net:
     driver: bridge

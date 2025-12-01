@@ -18,7 +18,7 @@ def llm_generate(prompt: str) -> str:
     try:
         return generate_response(prompt)
     except Exception as e:
-        return f"Error generating response with local LLM: {e}"
+        return f"Error generating response with the model gateway: {e}"
 
 
 def get_graph_context(ids: List[int]) -> List[str]:

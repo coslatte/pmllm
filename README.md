@@ -20,6 +20,16 @@ This repository contains a project plan and supporting material for building a K
 
 See `plan/PLAN.md` for the structured, agent-friendly plan and task contracts.
 
+### Container Topology
+
+The deployment now relies on three long-running containers that communicate over the internal `pmllm-net` bridge network defined in `docker-compose.yml`:
+
+1. **Milvus stack** (`milvus-standalone` + dependencies) — vector database plus MinIO/etcd.
+2. **Model gateway** (`pmllm-model-gateway`) — serves both embeddings (`/v1/embeddings`) and chat completions (`/v1/chat/completions`) using the Gemma models packaged inside the container.
+3. **Chat/preference service** (`pmllm-recommender-api`) — FastAPI server that persists chats, user preferences, and recommendation history in SQLite (or another database via `CHAT_DB_URL`).
+
+All CLI commands that need embeddings or LLM output communicate with container #2 via HTTP, while personalization features interact with container #3.
+
 ## Data sources (examples)
 
 - University/academy course catalogs
@@ -224,20 +234,22 @@ Note: the project now uses a RAG approach with Gemma 3. Do not add or expect fin
    export MILVUS_HOST="127.0.0.1"
    export MILVUS_PORT="19530"
 
-   # LLM API endpoint (for Gemma via LM Studio)
-   export QWEN_GENERATE_URL="http://localhost:1234/v1/chat/completions"
-   export LLM_MODEL="google/gemma-3-1b"
+    # Model gateway endpoints (container exposes both routes)
+    export EMBEDDING_API_URL="http://localhost:9000/v1/embeddings"
+    export LLM_API_URL="http://localhost:9000/v1/chat/completions"
+    export EMBEDDING_MODEL="text-embedding-embeddinggemma-300m-qat"
+    export LLM_MODEL="gemma-3-1b-it-qat"
 
-   # Embedding model (optional)
-   export EMBEDDING_MODEL="text-embedding-embeddinggemma-300m-qat"
+    # Chat store (optional override if not using SQLite file inside container)
+    export CHAT_DB_PATH="./storage/local_app.db"
    ```
 
    For a complete list of environment variables and their descriptions, see `ENVIRONMENT.md`.
 
-5. **Start Milvus services:**
+5. **Start the containers (Milvus + model gateway + recommender API):**
 
    ```bash
-   docker-compose up -d
+    docker compose up -d
    ```
 
 6. **Run the CLI to verify installation:**
@@ -261,7 +273,7 @@ cp .env.example .env
 uv run python main.py build --demo
 ```
 
-`build --demo` extracts the TAR/TSV dumps, converts them to CSV, prepares Neo4j headers, runs the bulk import, and builds Milvus embeddings using the LM Studio embedding endpoint.
+`build --demo` extracts the TAR/TSV dumps, converts them to CSV, prepares Neo4j headers, runs the bulk import, and builds Milvus embeddings by calling the model gateway container.
 
 **Full automated build (recommended for production):**
 
@@ -349,18 +361,18 @@ The following runbooks document the end-to-end flows the user asked for: (1) bui
 
 ### 2. Build the Milvus vector database
 
-1. **Bring dependencies online**: `docker-compose up -d` starts Milvus and MinIO. In LM Studio (or your embedding service) load the embedding model declared in `.env` (default `text-embedding-qwen3-embedding-0.6b`).
+1. **Bring dependencies online**: `docker compose up -d` starts Milvus (plus etcd/MinIO), the model gateway, and the recommender API containers.
 2. **Ensure Neo4j is running**: The vector builder streams nodes directly from Neo4j, so the database created in the previous runbook must be online and reachable via Bolt.
-3. **Run the embedding job**: Execute `uv run python main.py build-vector --labels "Artist,Recording,Release,Tag"` (or let the command pull `VECTOR_LABELS` from `.env`). It reads batches of nodes, builds embeddings via LM Studio, and upserts them into Milvus (see `db/vector/build_vector_db.py`). The full `build` or `build --demo` command already calls this as Step 4.
+3. **Run the embedding job**: Execute `uv run python main.py build-vector --labels "Artist,Recording,Release,Tag"` (or let the command pull `VECTOR_LABELS` from `.env`). It reads batches of nodes, requests embeddings from the model gateway container, and upserts them into Milvus (see `db/vector/build_vector_db.py`). The full `build` or `build --demo` command already calls this as Step 4.
 4. **Validate retrieval**: Optionally run `uv run python main.py query "question" --k 5` to ensure the RAG stack (Neo4j + Milvus + Gemma) returns grounded answers.
 
 ### 3. Persist chats and generated recommendations
 
 The `server/` package exposes a FastAPI service that stores users, chats, and recommendations plus the per-user profile vectors used for personalization.
 
-1. **Start the API**: `uv run python -m uvicorn server.main:app --reload` initializes the SQLite database (`server/database.py` → `local_app.db`) and the Milvus collection `user_profile_vectors` (see `server/milvus_handler.py`).
+1. **Start the API**: `docker compose up -d recommender-api` (or `uv run python -m uvicorn server.main:app --reload` for local dev) initializes the SQLite database (`server/database.py` → `local_app.db`) and the Milvus collection `user_profile_vectors` (see `server/milvus_handler.py`).
 2. **Create a user**: `POST /users` with `{ "username": "alice" }` stores a UUID-tagged user row.
 3. **Capture preferences + vectorize**: `POST /preferences` with genre/artist/instrument arrays writes JSON blobs to SQLite, generates prose ("User likes ..."), and calls `upsert_user_profile` to store the vector in Milvus. You can retrieve the vector with `GET /get_profile_vector?user_id=<uuid>`.
 4. **Track chats**: `POST /chat` creates a chat session. Use `POST /message` to log each turn (role + content) and `GET /chat/{chat_id}/messages` to replay the conversation. This data becomes the audit trail for generated answers.
 5. **Request recommendations**: `POST /recommendations` with `user_id` fetches preferences, loads the user profile embedding, and invokes `server/recommendation_engine.py` (which in turn queries Neo4j + Milvus). The JSON response contains the recommended courses/connections plus the explanations required by our contracts.
-6. **Back up artifacts**: Snapshot `local_app.db` and, if needed, export the `user_profile_vectors` collection from Milvus to keep an auditable history of chats and generated outputs.
+6. **Back up artifacts**: Snapshot the mounted `/app/storage/local_app.db` (container volume) and, if needed, export the `user_profile_vectors` collection from Milvus to keep an auditable history of chats and generated outputs.

@@ -10,7 +10,7 @@ El sistema implementa una arquitectura de "dos cerebros y una voz":
 
 - **Cerebro Lógico (Neo4j)**: Base de datos de grafos para relaciones exactas entre entidades musicales
 - **Cerebro Intuitivo (Milvus)**: Base de datos vectorial para similitudes semánticas
-- **Voz (Qwen 3)**: Modelo de lenguaje para generación de respuestas
+- **Voz (Gemma 3)**: Modelo de lenguaje (expuesto vía contenedor `pmllm-model-gateway`) para generación de respuestas
 
 ### Componentes de Almacenamiento
 

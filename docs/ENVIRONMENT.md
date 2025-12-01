@@ -37,23 +37,33 @@ cp .env.example .env
 
 **Security Warning:** Change MinIO credentials for production use!
 
-### LLM API Settings
+### Chat & Preference Store
 
-| Variable      | Default                                     | Description                                        |
-| ------------- | ------------------------------------------- | -------------------------------------------------- |
-| `LLM_API_URL` | `http://127.0.0.1:1234/v1/chat/completions` | Endpoint URL for LLM API (LM Studio or compatible) |
-| `LLM_MODEL`   | `google/gemma-3-1b`                         | Model name to use for text generation              |
+| Variable          | Default                     | Description                                                                                 |
+| ----------------- | --------------------------- | ------------------------------------------------------------------------------------------- |
+| `CHAT_DB_URL`     | _(blank, falls back to path) | Optional SQLAlchemy-compatible URL for the chat/prefs database (SQLite, Postgres, etc.).    |
+| `CHAT_DB_PATH`    | `./storage/local_app.db`     | Filesystem path for SQLite when `CHAT_DB_URL` is unset.                                     |
+| `CHAT_SERVICE_URL`| `http://localhost:8080`      | Base URL for the FastAPI recommender service (used by the frontend or other clients).       |
 
-### Embedding Model Settings
+### Model Gateway & API Settings
 
-| Variable               | Default                                  | Description                                                       |
-| ---------------------- | ---------------------------------------- | ----------------------------------------------------------------- |
-| `USE_LOCAL_EMBEDDING`  | `false`                                  | Use local SentenceTransformer instead of LM Studio embeddings API |
-| `EMBEDDING_MODEL`      | `text-embedding-embeddinggemma-300m-qat` | Model name for embeddings (local or remote)                       |
-| `EMBEDDING_MODEL_PATH` | `text-embedding-embeddinggemma-300m-qat` | Path to embedding model. Can be HuggingFace name or local path    |
-| `EMBEDDING_URL`        | `http://127.0.0.1:1234/v1/embeddings`    | LM Studio embeddings endpoint URL                                 |
+| Variable                         | Default                                        | Description                                                                                 |
+| -------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `MODEL_GATEWAY_EMBEDDING_MODEL`  | `text-embedding-embeddinggemma-300m-qat`       | Gemma variant the gateway loads for `/v1/embeddings`.                                       |
+| `MODEL_GATEWAY_LLM_MODEL`        | `gemma-3-1b-it-qat`                            | Gemma chat variant served from `/v1/chat/completions`.                                      |
+| `MODEL_GATEWAY_DEVICE`           | `cpu`                                          | Device hint for the gateway container (e.g., `cuda`, `cpu`).                                 |
+| `MODEL_GATEWAY_DTYPE`            | `float32`                                      | Torch dtype used when loading Gemma inside the gateway container.                           |
+| `EMBEDDING_API_URL`              | `http://localhost:9000/v1/embeddings`          | Host-facing URL for requesting embeddings from the gateway.                                 |
+| `EMBEDDING_MODEL`                | `text-embedding-embeddinggemma-300m-qat`       | Embedding model name echoed in API payloads (helps the gateway pick the right weights).     |
+| `EMBEDDING_API_TIMEOUT`          | `60`                                           | HTTP timeout (seconds) for embedding calls.                                                 |
+| `LLM_API_URL`                    | `http://localhost:9000/v1/chat/completions`    | Host-facing URL for chat completions from the same gateway.                                 |
+| `LLM_MODEL`                      | `gemma-3-1b-it-qat`                            | Chat model identifier provided in API payloads.                                             |
+| `LLM_MAX_NEW_TOKENS`             | `512`                                          | Default max tokens for generation.                                                          |
+| `LLM_TEMPERATURE`                | `0.7`                                          | Default sampling temperature.                                                               |
+| `LLM_API_TIMEOUT`                | `120`                                          | HTTP timeout (seconds) for chat completions.                                                |
+| `MODEL_API_KEY`                  | _(blank)_                                      | Optional bearer token if you secure the gateway behind auth.                                |
 
-> **LM Studio workflow reminder:** the `build` command expects LM Studio to expose the embedding model during conversion, preparation, and vector creation. After the build completes you can switch LM Studio to the conversational LLM model for `query` runs.
+> **Container reminder:** The Gemma embedding + chat models now live inside the `pmllm-model-gateway` container. Keep this service running whenever you build vectors or answer queries. Override the `_API_URL` values with `http://pmllm-model-gateway:9000/...` when calling from another container on the same Docker network.
 
 ## Build Process Configuration
 

@@ -38,23 +38,33 @@ cp .env.example .env
 
 **Advertencia de Seguridad:** ¡Cambie las credenciales de MinIO para uso en producción!
 
-### Configuración de API LLM
+### Almacén de Chats y Preferencias
 
-| Variable      | Predeterminado                              | Descripción                                        |
-| ------------- | ------------------------------------------- | -------------------------------------------------- |
-| `LLM_API_URL` | `http://127.0.0.1:1234/v1/chat/completions` | URL del endpoint para la API LLM (LM Studio o compatible) |
-| `LLM_MODEL`   | `google/gemma-3-1b`                         | Nombre del modelo a usar para generación de texto  |
+| Variable           | Predeterminado              | Descripción                                                                                   |
+| ------------------ | --------------------------- | --------------------------------------------------------------------------------------------- |
+| `CHAT_DB_URL`      | _(vacío)_                   | URL compatible con SQLAlchemy para almacenar chats/preferencias (SQLite, Postgres, etc.).     |
+| `CHAT_DB_PATH`     | `./storage/local_app.db`    | Ruta de archivos para SQLite cuando `CHAT_DB_URL` no está definido.                           |
+| `CHAT_SERVICE_URL` | `http://localhost:8080`     | URL base del servicio FastAPI de recomendaciones (usada por frontend u otros clientes).       |
 
-### Configuración del Modelo de Embedding
+### Pasarela de Modelos y API
 
-| Variable               | Predeterminado                           | Descripción                                                       |
-| ---------------------- | ---------------------------------------- | ----------------------------------------------------------------- |
-| `USE_LOCAL_EMBEDDING`  | `false`                                  | Usar SentenceTransformer local en lugar de la API de embeddings de LM Studio |
-| `EMBEDDING_MODEL`      | `text-embedding-embeddinggemma-300m-qat` | Nombre del modelo para embeddings (local o remoto)                |
-| `EMBEDDING_MODEL_PATH` | `text-embedding-embeddinggemma-300m-qat` | Ruta al modelo de embedding. Puede ser nombre de HuggingFace o ruta local |
-| `EMBEDDING_URL`        | `http://127.0.0.1:1234/v1/embeddings`    | URL del endpoint de embeddings de LM Studio                       |
+| Variable                        | Predeterminado                              | Descripción                                                                                   |
+| ------------------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `MODEL_GATEWAY_EMBEDDING_MODEL` | `text-embedding-embeddinggemma-300m-qat`    | Variante de Gemma cargada por el gateway para `/v1/embeddings`.                               |
+| `MODEL_GATEWAY_LLM_MODEL`       | `gemma-3-1b-it-qat`                         | Variante conversacional servida en `/v1/chat/completions`.                                    |
+| `MODEL_GATEWAY_DEVICE`          | `cpu`                                       | Dispositivo usado dentro del contenedor (`cpu`, `cuda`, etc.).                                |
+| `MODEL_GATEWAY_DTYPE`           | `float32`                                   | Tipo de dato Torch usado al cargar Gemma dentro del gateway.                                  |
+| `EMBEDDING_API_URL`             | `http://localhost:9000/v1/embeddings`       | URL (vista desde el host) para solicitar embeddings al gateway.                               |
+| `EMBEDDING_MODEL`               | `text-embedding-embeddinggemma-300m-qat`    | Nombre del modelo enviado en los payloads de la API.                                          |
+| `EMBEDDING_API_TIMEOUT`         | `60`                                        | Tiempo de espera (segundos) para peticiones de embeddings.                                    |
+| `LLM_API_URL`                   | `http://localhost:9000/v1/chat/completions` | URL (vista desde el host) para solicitudes de chat.                                           |
+| `LLM_MODEL`                     | `gemma-3-1b-it-qat`                         | Nombre del modelo de chat usado en los payloads.                                              |
+| `LLM_MAX_NEW_TOKENS`            | `512`                                       | Máximo de tokens nuevos para generación.                                                     |
+| `LLM_TEMPERATURE`               | `0.7`                                       | Temperatura de muestreo predeterminada.                                                       |
+| `LLM_API_TIMEOUT`               | `120`                                       | Tiempo de espera (segundos) para completions.                                                 |
+| `MODEL_API_KEY`                 | _(vacío)_                                   | Token opcional de autenticación si se securiza el gateway.                                    |
 
-> **Recordatorio de flujo de trabajo de LM Studio:** el comando `build` espera que LM Studio exponga el modelo de embedding durante la conversión, preparación y creación de vectores. Después de que se complete la construcción, puede cambiar LM Studio al modelo LLM conversacional para ejecuciones de `query`.
+> **Recordatorio de contenedores:** Los modelos Gemma (embeddings y chat) viven ahora dentro del contenedor `pmllm-model-gateway`. Mantén este servicio activo durante las construcciones y consultas. Si llamas desde otro contenedor en la misma red Docker, usa `http://pmllm-model-gateway:9000/...` en las variables `_API_URL`.
 
 ## Configuración del Proceso de Construcción
 

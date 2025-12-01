@@ -1,118 +1,62 @@
 import os
-import sys
+from typing import Any, Dict
 
-# Configuration
-USE_LOCAL_LLM = os.getenv("USE_LOCAL_LLM", "true").lower() == "true"
-LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "Qwen/Qwen3-1.7B")
-LLM_DEVICE = os.getenv("LLM_DEVICE", "cpu")  # 'cpu' or 'cuda'
+import requests
+
+# Configuration for the model gateway
+LLM_API_URL = os.getenv("LLM_API_URL", "http://localhost:9000/v1/chat/completions")
+LLM_MODEL = os.getenv("LLM_MODEL", "gemma-3-1b-it-qat")
+LLM_API_KEY = os.getenv("LLM_API_KEY") or os.getenv("MODEL_API_KEY")
 LLM_MAX_NEW_TOKENS = int(os.getenv("LLM_MAX_NEW_TOKENS", "512"))
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.7"))
-
-_model = None
-_tokenizer = None
+LLM_API_TIMEOUT = float(os.getenv("LLM_API_TIMEOUT", "120"))
 
 
-def _get_local_model():
-    global _model, _tokenizer
-    if _model is None or _tokenizer is None:
-        try:
-            from transformers import AutoTokenizer, AutoModelForCausalLM
-            import torch
-
-            # Set device
-            device = torch.device(LLM_DEVICE if torch.cuda.is_available() and LLM_DEVICE == "cuda" else "cpu")
-
-            # Load tokenizer
-            try:
-                print(f"Loading tokenizer for {LLM_MODEL_NAME}...")
-                _tokenizer = AutoTokenizer.from_pretrained(LLM_MODEL_NAME, local_files_only=True)
-            except Exception as e:
-                print(f"Failed to load tokenizer locally: {e}")
-                if input("Do you want to download the tokenizer? [Y/n]").lower().strip() in ("yes", "y"):
-                    _tokenizer = AutoTokenizer.from_pretrained(LLM_MODEL_NAME)
-                else:
-                    print("Exiting...")
-                    sys.exit(0)
-
-            # Load model
-            try:
-                print(f"Loading model {LLM_MODEL_NAME} on {device}...")
-                _model = AutoModelForCausalLM.from_pretrained(
-                    LLM_MODEL_NAME,
-                    local_files_only=True,
-                    torch_dtype=torch.float32 if device.type == "cpu" else torch.float16,
-                    device_map="auto" if device.type == "cuda" else None,
-                ).to(device)
-            except Exception as e:
-                print(f"Failed to load model locally: {e}")
-                if input("Do you want to download the model? [Y/n]").lower().strip() in ("yes", "y"):
-                    _model = AutoModelForCausalLM.from_pretrained(
-                        LLM_MODEL_NAME,
-                        torch_dtype=torch.float32 if device.type == "cpu" else torch.float16,
-                        device_map="auto" if device.type == "cuda" else None,
-                    ).to(device)
-                else:
-                    print("Exiting...")
-                    sys.exit(0)
-
-        except ImportError as e:
-            print(f"Required libraries not installed: {e}")
-            _model = None
-            _tokenizer = None
-    return _model, _tokenizer
+def _build_headers() -> Dict[str, str]:
+    headers = {"Content-Type": "application/json"}
+    if LLM_API_KEY:
+        headers["Authorization"] = f"Bearer {LLM_API_KEY}"
+    return headers
 
 
-def generate_response(prompt: str, system_message: str = "You are a helpful music expert assistant.") -> str:
-    """Generate a response using the local LLM.
+def _extract_text_choice(payload: Dict[str, Any]) -> str:
+    choices = payload.get("choices")
+    if not choices:
+        raise RuntimeError("LLM response did not contain 'choices'.")
 
-    Args:
-        prompt: The user prompt
-        system_message: The system message for the model
+    first = choices[0]
+    if "message" in first:
+        content = first["message"].get("content")
+    else:
+        content = first.get("text")
 
-    Returns:
-        The generated response text
+    if not content:
+        raise RuntimeError("LLM response did not include any text content.")
+    return content.strip()
 
-    Raises:
-        RuntimeError: If generation fails
-    """
-    if USE_LOCAL_LLM:
-        try:
-            model, tokenizer = _get_local_model()
-            if model and tokenizer:
-                import torch
 
-                # Format the input with system message
-                if tokenizer.chat_template:
-                    messages = [
-                        {"role": "system", "content": system_message},
-                        {"role": "user", "content": prompt}
-                    ]
-                    input_text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-                else:
-                    input_text = f"{system_message}\n\nUser: {prompt}\n\nAssistant:"
+def generate_response(
+    prompt: str, system_message: str = "You are a helpful music expert assistant."
+) -> str:
+    """Generate a response using the configured model gateway."""
 
-                # Tokenize
-                inputs = tokenizer(input_text, return_tensors="pt")
-                if LLM_DEVICE == "cuda" and torch.cuda.is_available():
-                    inputs = {k: v.cuda() for k, v in inputs.items()}
+    payload = {
+        "model": LLM_MODEL,
+        "messages": [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": prompt},
+        ],
+        "max_tokens": LLM_MAX_NEW_TOKENS,
+        "temperature": LLM_TEMPERATURE,
+        "stream": False,
+    }
 
-                # Generate
-                with torch.no_grad():
-                    outputs = model.generate(
-                        **inputs,
-                        max_new_tokens=LLM_MAX_NEW_TOKENS,
-                        temperature=LLM_TEMPERATURE,
-                        do_sample=True,
-                        pad_token_id=tokenizer.eos_token_id,
-                    )
-
-                # Decode
-                generated_text = tokenizer.decode(outputs[0][inputs['input_ids'].shape[1]:], skip_special_tokens=True)
-                return generated_text.strip()
-            else:
-                raise RuntimeError("Local model not available.")
-        except Exception as e:
-            raise RuntimeError(f"Local LLM generation failed: {e}")
-
-    # Fallback to API if needed, but since we're implementing local, raise error
-    raise RuntimeError("Local LLM is disabled and no API fallback implemented.")
+    response = requests.post(
+        LLM_API_URL,
+        json=payload,
+        headers=_build_headers(),
+        timeout=LLM_API_TIMEOUT,
+    )
+    response.raise_for_status()
+    data = response.json()
+    return _extract_text_choice(data)

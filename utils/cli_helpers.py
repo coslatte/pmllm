@@ -60,13 +60,17 @@ def print_preflight_summary(
 ) -> dict[str, bool]:
     """Display and evaluate the pre-build checklist."""
     typer.secho("\n=== Pre-build checklist ===", fg=info_color, bold=True)
+    embedding_url = (
+        os.getenv("EMBEDDING_API_URL") or os.getenv("EMBEDDING_URL") or ""
+    ).strip()
+
     status: dict[str, bool] = {
         "raw_core": raw_core_dir.exists(),
         "raw_derived": True,
         "output_parent": output_dir.parent.exists(),
         "neo4j_bin": neo4j_bin_path is not None and neo4j_bin_path.exists(),
         "java_home": java_home is not None and java_home.exists(),
-        "embedding": bool(os.getenv("EMBEDDING_URL", "").strip()),
+        "embedding": bool(embedding_url),
     }
     typer.echo(path_status("Raw TSV/TAR core directory", raw_core_dir))
     if raw_derived_dir and f"{raw_derived_dir}".strip():
@@ -89,15 +93,14 @@ def print_preflight_summary(
     typer.echo(path_status("NEO4J_BIN_PATH", neo4j_bin_path or Path("")))
     typer.echo(path_status("JAVA_HOME", java_home or Path("")))
 
-    embedding_url = os.getenv("EMBEDDING_URL", "").strip()
     if embedding_url:
-        typer.echo(f"[OK] LM Studio embedding endpoint configured: {embedding_url}")
+        typer.echo(f"[OK] Embedding API endpoint configured: {embedding_url}")
     else:
-        typer.echo("[MISSING] EMBEDDING_URL (LM Studio embedding endpoint).")
+        typer.echo("[MISSING] EMBEDDING_API_URL (model gateway embedding endpoint).")
 
     typer.echo("[REQUIRED] Neo4j Desktop must be STOPPED before running the import.")
     typer.echo(
-        "[REQUIRED] LM Studio must expose the embedding model during the build. Switch back to the conversational LLM only after the build finishes."
+        "[REQUIRED] The model gateway container must stay online to serve both embeddings and chat completions."
     )
     typer.echo("[REQUIRED] docker-compose (Milvus/MinIO/etcd) must be RUNNING.")
     usage_base = output_dir if output_dir.exists() else output_dir.parent

@@ -14,15 +14,15 @@ El sistema funciona como un experto musical con "dos cerebros" y una "voz":
 
 ### B. El Cerebro Intuitivo (Milvus - Base de Datos Vectorial)
 
-- **Función**: Almacena el "significado" semántico y el contexto mediante Embeddings.
-- **Modelo**: Utiliza `text-embedding-qwen3-embedding-0.6b` para generar los vectores.
+- **Función**: Almacena el "significado" semántico y el contexto mediante embeddings Gemma.
+- **Modelo**: Utiliza `text-embedding-embeddinggemma-300m-qat` para generar los vectores.
 - **Ejemplo**: Si se busca "canciones tristes sobre rupturas", encuentra canciones con letras o descripciones que _significan_ eso, aunque no contengan la palabra "triste".
 - **Uso**: Recuperación de contexto cuando la consulta es vaga, temática o basada en similitud.
 
-### C. La Voz (Qwen 3 - LLM)
+### C. La Voz (Gemma 3 - LLM)
 
 - **Función**: Generador de texto y razonamiento final.
-- **Modelo**: `qwen/qwen3-1.7b` (Ejecutado vía LM Studio).
+- **Modelo**: `gemma-3-1b-it-qat`, servido por el contenedor `pmllm-model-gateway`.
 - **Uso**: Recibe la pregunta del usuario + la información recuperada de Neo4j y Milvus. Redacta una respuesta natural, explica las recomendaciones y cita las fuentes.
 
 ---
@@ -44,14 +44,14 @@ El proceso de transformación de los datos es el siguiente:
 
    - Lectura de nodos desde Neo4j (o CSVs).
    - Generación de texto descriptivo para cada nodo (ej: "Queen es una banda de Rock formada en Londres...").
-   - **Generación de embeddings**: Se realizará localmente usando Python (librería `sentence-transformers` o similar) cargando el modelo `text-embedding-qwen3-embedding-0.6b` directamente. Esto evita conflictos de memoria con LM Studio.
+   - **Generación de embeddings**: Se delega al contenedor `pmllm-model-gateway`, el cual expone `/v1/embeddings` con el modelo `text-embedding-embeddinggemma-300m-qat`.
    - Almacenamiento de vectores en **Milvus**.
 
 4. **Consulta (RAG Híbrido)**:
    - Usuario hace una pregunta.
    - Búsqueda en **Milvus** (Similitud semántica).
    - Búsqueda en **Neo4j** (Relaciones estructurales).
-   - Consolidación de contexto -> Prompt enviado a **LM Studio** (API compatible con OpenAI).
+   - Consolidación de contexto -> Prompt enviado al **gateway de modelos** (API OpenAI-compat).
    - Generación de respuesta final.
 
 ---
@@ -62,14 +62,11 @@ Hoja de ruta técnica para la implementación de la Fase 2:
 
 ### Paso 2.1: Levantar Infraestructura
 
-- **Milvus**: Ejecutar `docker-compose up -d` (configurado para levantar solo Milvus y sus dependencias).
+- **Stack Docker**: Ejecutar `docker compose up -d` para iniciar Milvus (etcd + MinIO), el contenedor `pmllm-model-gateway` (Gemma embeddings/LLM) y el contenedor `pmllm-recommender-api` (chat y preferencias).
 - **Neo4j Desktop**:
-  - Crear un proyecto nuevo (vacío).
-  - Ubicar la ruta de la carpeta `bin` de la instalación.
-  - Mantener la base de datos detenida para permitir la importación inicial.
-- **LM Studio**:
-  - Cargar el modelo `qwen:1.7b` en el "Local Server".
-  - Iniciar el servidor en el puerto `1234`.
+   - Crear un proyecto nuevo (vacío).
+   - Ubicar la ruta de la carpeta `bin` de la instalación.
+   - Mantener la base de datos detenida para permitir la importación inicial.
 
 ### Paso 2.2: Importación a Neo4j (El Grafo)
 
@@ -85,7 +82,7 @@ Desarrollar/Actualizar el script de población (`db/vector/build_vector_db.py`):
 
 1. Conectar a Neo4j para extraer lotes de nodos.
 2. Generar descripciones textuales de los nodos.
-3. **Generar Embeddings**: Cargar el modelo `text-embedding-qwen3-embedding-0.6b` localmente en el script (sin llamar a API externa) para máxima velocidad.
+3. **Generar Embeddings**: Consumir el endpoint `/v1/embeddings` del gateway (modelo `text-embedding-embeddinggemma-300m-qat`) para mantener consistencia con producción.
 4. Insertar vectores y metadatos en Milvus.
 
 ### Paso 2.4: Consolidación RAG
@@ -93,5 +90,5 @@ Desarrollar/Actualizar el script de población (`db/vector/build_vector_db.py`):
 Actualizar `rag_pipeline.py`:
 
 - Integrar la búsqueda híbrida (Milvus + Neo4j).
-- Configurar el cliente de API para apuntar a `http://localhost:1234/v1` (LM Studio).
-- Diseñar el prompt final para Qwen 1.7b.
+- Configurar el cliente de API para apuntar al gateway (`http://localhost:9000/v1`).
+- Diseñar el prompt final para Gemma 3.

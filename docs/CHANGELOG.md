@@ -2,8 +2,16 @@
 
 This file documents all changes made to the project, especially those implemented by agents.
 
+> Note: The project standardizes on Gemma family models served from local containers via
+> the `pmllm-model-gateway` (exposing an OpenAI-compatible `/v1` API). Older references
+> to "LM Studio" or "Qwen 3" in historical entries are outdated and have been superseded
+> by the current approach: containerized local models (Gemma) exposing embedding and
+> generation endpoints. Configuration variables such as `EMBEDDING_API_URL`,
+> `LLM_API_URL`, `EMBEDDING_MODEL` and `LLM_MODEL` control the gateway behavior.
+
 ## 2025-12-01
 
+- **Model Gateway & Container Stack**: Added the `model_gateway` FastAPI service (embeddings + chat completions) with Dockerfile, requirements, and compose wiring, plus the `pmllm-recommender-api` container backed by a configurable SQLite path. Updated `.env` / `.env.example`, docker-compose, CLI helpers, tests, and all docs (README, ENVIRONMENT, CLI_USAGE, DISTRIBUCION_DATOS, plan files, Copilot instructions, EN/ES variants) to describe the three-container topology (Milvus, model gateway, chat DB) and the Gemma defaults.
 - **Local LLM Integration**: Implemented direct interaction with LLM models using Transformers library instead of LM Studio API. Added `db/vector/helper/llm_handler.py` for local model loading and generation. Updated `rag_pipeline.py` to use local LLM. Added new environment variables: `USE_LOCAL_LLM`, `LLM_MODEL_NAME`, `LLM_DEVICE`, `LLM_MAX_NEW_TOKENS`, `LLM_TEMPERATURE`. Updated dependencies in `pyproject.toml` to include `transformers`, `torch`, `accelerate`.
 - **Neo4j Desktop Bundle CLI**: Added the `prepare-desktop` command to `main.py`, plus `utils/helpers/desktop_bundle_handler.py`, so we can merge headers and data into Neo4j Desktop–ready CSVs (nodes + relationships) under `output/neo4j_desktop` for simple drag-and-drop imports.
 - **Data Distribution Documentation**: Added `docs/DISTRIBUCION_DATOS.md` documenting the data architecture for chat database, user preferences, and recommendation system, including SQLite schema, data flow, and distribution patterns.
@@ -20,7 +28,7 @@ This file documents all changes made to the project, especially those implemente
 - **Delimiter Parsing Issue**: Identified potential issue with `DELIMITER=\t` in `.env` causing "delimiter must be a 1-character string" error; recommended using actual tab character in `.env` or ensuring proper escaping.
 
 - **CLI Color Simplification**: Removed `utils/constants/cli_colors.py` and updated `main.py` to call `typer.colors` directly, reducing unused indirection in the command-line UX.
-- **Build Pipeline Overhaul**: `build` now runs the entire chain (TAR/TSV conversion → CSV preparation → Neo4j import → Milvus vector build) and accepts a new `--demo` flag that overrides sampling/test settings. Added reusable conversion prompts, LM Studio embedding reminders, deprecated `demo-build`, and introduced `CSV_CORE_DIR`, `CSV_DERIVED_DIR`, `VECTOR_LABELS`, and `DEMO_VECTOR_SAMPLE_PERCENT` environment controls with updated docs (`README.md`, `CLI_USAGE.md`, `ENVIRONMENT.md`, `.env.example`).
+	- **Build Pipeline Overhaul**: `build` now runs the entire chain (TAR/TSV conversion → CSV preparation → Neo4j import → Milvus vector build) and accepts a new `--demo` flag that overrides sampling/test settings. Added reusable conversion prompts, model-gateway embedding reminders (containerized local models), deprecated `demo-build`, and introduced `CSV_CORE_DIR`, `CSV_DERIVED_DIR`, `VECTOR_LABELS`, and `DEMO_VECTOR_SAMPLE_PERCENT` environment controls with updated docs (`README.md`, `CLI_USAGE.md`, `ENVIRONMENT.md`, `.env.example`).
 - **Demo Command Removal**: Removed the legacy `demo-build` command completely so help output only exposes the supported subcommands. Documentation now directs all demo usage through `build --demo`.
 - **Vector Build Reliability**: Added a Bolt readiness prompt before Step 4, auto-load Milvus collections, updated search params, and ensured TEST_MODE runs embeddings over the full (already downsampled) dataset instead of re-sampling to 1%.
 - **Vector Build Reliability**: Added a Bolt readiness prompt before Step 4, auto-load Milvus collections, and updated `vector_query.py` to pass the required search parameters so `build --demo` and `query` no longer fail when Neo4j or Milvus are still warming up.
@@ -35,9 +43,9 @@ This file documents all changes made to the project, especially those implemente
 
 ## 2025-11-22
 
-- **Model Strategy Update**: Switched text embedding model to 'text-embedding-embeddinggemma-300m-qat' (Gemma Embedding 300M, Q4_0, 229.09 MB from lmstudio-community). Updated LLM to 'google/gemma-3-1b' (Gemma 3 1B, Q4_0, 720.50 MB). This change reflects new LLM strategies for improved performance in the RAG pipeline. Updated `plan/PLAN.md` to document the new models and their specifications.
+- **Model Strategy Update**: Switched text embedding model to 'text-embedding-embeddinggemma-300m-qat' (Gemma Embedding 300M, Q4_0) and updated LLM to 'google/gemma-3-1b' (Gemma 3 1B, Q4_0). These weights are intended to be managed as local artifacts served by the `pmllm-model-gateway` (container) and do not require external LM Studio services. Updated `plan/PLAN.md` to document the new models and their specifications.
 - **Documentation Enhancement**: Created `docs/CHANGELOG_es.md` as a Spanish version of the change log, mirroring all entries in Spanish. Updated `plan/PLAN.md` to include documentation in both languages when appropriate and added `docs/CHANGELOG_es.md` to deliverables.
-- **Environment Configuration Update**: Updated `.env` and `docs/ENVIRONMENT.md` to reflect the new Gemma models: set `QWEN_GENERATE_MODEL` to 'google/gemma-3-1b' and `EMBEDDING_MODEL_PATH` to 'text-embedding-embeddinggemma-300m-qat'.
+- **Environment Configuration Update**: Updated `.env` and `docs/ENVIRONMENT.md` to reflect the new Gemma models: set `LLM_MODEL` to 'google/gemma-3-1b' and `EMBEDDING_MODEL` to 'text-embedding-embeddinggemma-300m-qat', and documented the use of the `pmllm-model-gateway` to expose `EMBEDDING_API_URL` and `LLM_API_URL` to the rest of the system.
 
 ## 2025-11-21
 
@@ -55,7 +63,7 @@ This file documents all changes made to the project, especially those implemente
 - **Neo4j Import Enhancement**: Updated `neo4j_importer.py` to include all new relationship types (ReleaseGroup, Tag nodes + 6 additional relationship files) in bulk import command.
 - **Data Quality Assurance**: Verified sampling compatibility, referential integrity, and exclusion of overly specific data points. Graph optimized for music recommendation use cases.
 
-- **Project Pivot**: Switched from fine-tuning models to Retrieval-Augmented Generation (RAG) using Qwen 3 as the LLM generator. Updated `README.md`, `plan/PLAN.md`, and `plan/original_plan.md` to reflect this change.
+ - **Project Pivot (clarified)**: Historical notes mentioning a pivot to Qwen 3 are superseded. The project uses Gemma-family models served locally via the `pmllm-model-gateway` (container) for both embeddings and generation. Documentation and scripts have been adjusted to rely on the gateway APIs rather than external LM Studio services.
 - **Vector Database**: Selected Milvus as the production vector database for embeddings and retrieval.
 - **Data Source**: Added support for fragmented MusicBrainz dataset (from PostgreSQL + Neo4j exports) as the primary data source for documents and KG relations.
 - **CLI Development**: Created `cli.py` with a CLI class to extract tar files, verify TSV formats, and convert to CSV. Handles directories with mixed tar and TSV files.
@@ -70,7 +78,7 @@ This file documents all changes made to the project, especially those implemente
 - **Neo4j Import Helper**: Added `db/neo4j/neo4j_importer.py` to wrap `neo4j-admin database import full` and `cypher-shell` verification queries.
 - **Neo4j Import CLI**: Added `import-neo4j` subcommand to `cli.py` to run bulk import using generated headers/labels/relationships, with flags for directories, database name, and optional verification queries.
 - **Documentation Updates**: Updated `README.md` and `plan/PLAN.md` to reflect the new CLI capabilities and renamed `docs/CHANGES.md` to `docs/CHANGELOG.md`.
-- **Qwen Generator**: Updated the RAG pipeline to call `qwen/qwen3-1.7b` for generation and `text-embedding-qwen3-embedding-0.6b` for embeddings, including helper modules and documentation.
+ - **Generator note**: References to a Qwen-based generator in earlier entries are legacy; current implementation targets Gemma models (served via the gateway) and local-container APIs. If Qwen-based experiments exist in git history, they are kept for provenance but are not the active configuration.
 
 ## 2025-11-20
 
