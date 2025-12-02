@@ -10,10 +10,6 @@ Esta guía proporciona instrucciones completas para usar la herramienta CLI `pml
 - [Referencia de Comandos](#referencia-de-comandos)
 - [Proceso de Construcción Completo](#proceso-de-construcción-completo)
 - [Ejemplos de Uso](#ejemplos-de-uso)
-- [Estrategias de Muestreo](#estrategias-de-muestreo)
-- [Características de Validación](#características-de-validación)
-- [Solución de Problemas](#solución-de-problemas)
-- [Uso Avanzado](#uso-avanzado)
 
 ## Resumen
 
@@ -67,6 +63,27 @@ cp .env.example .env
 uv run python main.py build
 ```
 
+### Iniciar el Stack + Servidor API
+
+Levanta los servicios dockerizados (Milvus, MinIO, gateway de modelos) y arranca el servidor FastAPI en un solo paso:
+
+```bash
+uv run python main.py start
+```
+
+Utiliza `--skip-compose` si los contenedores ya están ejecutándose o `--no-server` cuando solo necesitas las comprobaciones de salud.
+
+### Solo Construcción de Datos (Conversión + Preparación)
+
+```bash
+uv run python main.py build-data \
+  --core-dir music_metadata \
+  --derived-dir music_derived_metadata \
+  --output-dir output
+```
+
+`build-data` convierte los dumps TAR/TSV (core + derived) a CSV y ejecuta inmediatamente la preparación para Neo4j (cabeceras, datos etiquetados y relaciones) sin tocar la importación o la construcción vectorial. Usa `--reuse-converted/--no-reuse-converted` para decidir si se reutilizan los CSV ya existentes.
+
 ### Pasos Individuales
 
 ```bash
@@ -101,12 +118,33 @@ uv run python main.py query "¿Qué artistas son similares a Queen?"
 | Comando           | Descripción                                                                                   |
 | ----------------- | --------------------------------------------------------------------------------------------- |
 | `build`           | Pipeline completo (convertir → preparar → importar → construir vector). Soporta `--demo`      |
+| `build-data`      | Convierte dumps TAR/TSV y ejecuta la preparación para Neo4j (cabeceras, datos, relaciones)     |
 | `convert`         | Convertir archivos TSV a formato CSV                                                          |
 | `prepare-neo4j`   | Generar cabeceras, etiquetas y relaciones desde CSVs convertidos                              |
 | `prepare-desktop` | Fusionar cabeceras + datos en CSVs listos para Neo4j Desktop para importaciones drag-and-drop |
 | `import-neo4j`    | Ejecutar importación masiva de Neo4j (lee desde `output/core/*`)                              |
 | `build-vector`    | Construir base de datos vectorial desde nodos Neo4j y almacenar embeddings en Milvus          |
 | `query`           | Consultar el sistema RAG                                                                      |
+| `start`           | Iniciar servicios docker (Milvus, gateway) y lanzar el servidor FastAPI con chequeos de salud |
+
+### Comando Start
+
+```bash
+python main.py start [OPCIONES]
+```
+
+Une `docker compose up -d` y el arranque del servidor FastAPI en un solo comando con mensajes profesionales.
+
+| Opción             | Por defecto                         | Descripción |
+| ------------------ | ----------------------------------- | ----------- |
+| `--compose-file`   | `docker-compose.yml`                | Archivo compose que define Milvus, MinIO y el gateway de modelos |
+| `--skip-compose`   | `False`                             | Asume que los contenedores ya corren y solo ejecuta chequeos |
+| `--no-server`      | `False`                             | Prepara/valida servicios pero no inicia el servidor FastAPI |
+| `--host`           | `API_HOST` \ `0.0.0.0`              | Interfaz de red para el servidor FastAPI |
+| `--port`           | `API_PORT` \ `8000`                 | Puerto donde debe escuchar el servidor FastAPI |
+| `--reload/--no-reload` | `--no-reload`                  | Activa el auto-reload de uvicorn (solo desarrollo) |
+
+Si algún servicio depende (Neo4j Bolt, Milvus o el gateway de modelos) no responde, el comando se detiene mostrando exactamente qué falta por iniciar.
 
 ### Comando Build
 
@@ -120,6 +158,39 @@ python main.py build [OPCIONES]
 | ------------------ | ----------- | --------------------------------------------------------------------------------------------- |
 | `--config RUTA`    | `.env`      | Ruta al archivo de configuración                                                              |
 | `--demo/--no-demo` | `--no-demo` | Forzar muestreo demo + construcción vectorial en modo prueba (sobrescribe varios valores env) |
+| `--profile PERFIL` | selección interactiva / `full` (no TTY) | Elegir un perfil: `full`, `demo`, `neo4j-only`, `embeddings-only` o `conversion-only`. Si se omite, la CLI pregunta (y en entornos no interactivos usa `full`). |
+
+**Perfiles:**
+
+- `full`: Ejecuta la cadena completa (convertir → preparar → importar → embeddings).
+- `demo`: Igual que `full` pero fuerza los parámetros demo (`--demo` es un atajo).
+- `neo4j-only`: Omite conversión/preparación y solo ejecuta la importación masiva de Neo4j usando CSV existentes.
+- `embeddings-only`: Salta directo a la construcción vectorial; asume que Neo4j ya está poblado y en línea.
+- `conversion-only`: Solo realiza la conversión de TAR/TSV a CSV.
+
+### Comando Build-Data
+
+```bash
+python main.py build-data [OPCIONES]
+```
+
+Combina la conversión TAR/TSV y la preparación para Neo4j en una sola llamada. Útil cuando necesitas CSV frescos pero planeas ejecutar la importación de Neo4j manualmente más tarde.
+
+| Opción                              | Por defecto (env)                            | Descripción |
+| ----------------------------------- | -------------------------------------------- | ----------- |
+| `--core-dir RUTA`                   | `TSV_CORE_DIR` \ `music_metadata`            | Directorio con los dumps core de MusicBrainz (TAR/TSV) |
+| `--derived-dir RUTA`                | `TSV_DERIVED_DIR` \ `music_derived_metadata` | Directorio con los dumps derivados |
+| `--output-dir RUTA`                 | `OUTPUT_DIR` \ `output`                      | Directorio base para cabeceras/datos/relaciones preparados |
+| `--csv-core-dir RUTA`               | `CSV_CORE_DIR` \ `output/converted/core`     | Directorio opcional para los CSV core convertidos |
+| `--csv-derived-dir RUTA`            | `CSV_DERIVED_DIR` \ `output/converted/derived` | Directorio opcional para los CSV derivados convertidos |
+| `--sample-percent FLOAT`            | `SAMPLE_PERCENT` \ `100.0`                   | Porcentaje de filas a conservar durante la preparación |
+| `--sample-seed INT`                 | `SAMPLE_SEED` \ `42`                         | Semilla determinista para el muestreo |
+| `--delimiter STR`                   | `DELIMITER` \ `\t`                           | Delimitador de entrada (acepta literal `\t`) |
+| `--encoding STR`                    | `ENCODING` \ `utf-8`                         | Codificación de archivo |
+| `--skip-headers`                    | env `SKIP_HEADERS=false`                      | Saltar generación de cabeceras |
+| `--skip-labels`                     | env `SKIP_LABELS=false`                       | Saltar creación de datos etiquetados |
+| `--skip-relationships`              | env `SKIP_RELATIONSHIPS=false`                | Saltar generación de relaciones |
+| `--reuse-converted / --no-reuse-converted` | `--reuse-converted` | Reutilizar los CSV existentes si ya fueron convertidos |
 
 ### Modo Demo / Compatibilidad hacia atrás
 
@@ -268,7 +339,7 @@ VECTOR_LABELS=Artist,Recording,Release,Tag
 
 ### Salida de Construcción
 
-```
+```text
 Loaded config from: .env
 Starting full build process...
 
@@ -293,7 +364,7 @@ Paso 4: Construcción de la base vectorial Milvus (requiere el contenedor del ga
 🎉 Build finished! Neo4j + Milvus are ready for RAG queries.
 ```
 
-**Post-Construcción: Acceso a la Base de Datos**
+#### Post-Construcción: Acceso a la Base de Datos
 
 Después de completar el proceso de construcción, la base de datos Neo4j se crea automáticamente. Para acceder a ella desde Neo4j Browser:
 

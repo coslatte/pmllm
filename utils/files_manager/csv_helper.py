@@ -257,6 +257,32 @@ def resolve_table_path(
     return None
 
 
+def _resolve_core_table(
+    table_name: str,
+    core_dir: Path,
+    *,
+    required: bool = True,
+) -> Optional[Path]:
+    """Resolve a table within the core directory supporting TSV or CSV variants."""
+
+    path = resolve_table_path(
+            table_name=table_name,
+            core_dir=core_dir,
+            derived_dir=None,
+            prefer_derived=False,
+        )
+
+    if path:
+        return path
+
+    if required:
+            raise FileNotFoundError(
+                f"Required file not found for table '{table_name}'. Checked for TSV/CSV variants in {core_dir.resolve()}"
+            )
+
+    return None
+
+
 def create_headers(
     headers_dir: Path, delimiter: str = "\t", encoding: str = "utf-8"
 ) -> None:
@@ -330,13 +356,11 @@ def prepare_artist_credit_relationships(
     relationships_dir = relationships_dir.resolve()
     relationships_dir.mkdir(parents=True, exist_ok=True)
 
-    recording_path = mbdump_dir / "recording"
-    release_path = mbdump_dir / "release"
-    artist_credit_name_path = mbdump_dir / "artist_credit_name"
-
-    for path in (recording_path, release_path, artist_credit_name_path):
-        if not path.exists():
-            raise FileNotFoundError(f"Required file not found: {path}")
+    recording_path = _resolve_core_table("recording", mbdump_dir)
+    release_path = _resolve_core_table("release", mbdump_dir)
+    artist_credit_name_path = _resolve_core_table(
+        "artist_credit_name", mbdump_dir
+    )
 
     artist_credit_to_recording: Dict[str, str] = {}
     artist_credit_to_release: Dict[str, str] = {}
@@ -422,10 +446,14 @@ def prepare_recording_work_relationships(
     relationships_dir = relationships_dir.resolve()
     relationships_dir.mkdir(parents=True, exist_ok=True)
 
-    recording_work_path = mbdump_dir / "l_recording_work"
+    recording_work_path = _resolve_core_table(
+        "l_recording_work", mbdump_dir, required=False
+    )
 
-    if not recording_work_path.exists():
-        print(f"⚠️  Recording-Work relationships file not found: {recording_work_path}")
+    if recording_work_path is None:
+        print(
+            "⚠️  Recording-Work relationships file not found (expected l_recording_work TSV/CSV)."
+        )
         return
 
     recording_work_relationships_path = (
@@ -469,10 +497,10 @@ def prepare_release_release_group_relationships(
     relationships_dir = relationships_dir.resolve()
     relationships_dir.mkdir(parents=True, exist_ok=True)
 
-    release_path = mbdump_dir / "release"
+    release_path = _resolve_core_table("release", mbdump_dir, required=False)
 
-    if not release_path.exists():
-        print(f"⚠️  Release file not found: {release_path}")
+    if release_path is None:
+        print("⚠️  Release file not found in core dumps (release TSV/CSV missing).")
         return
 
     release_release_group_relationships_path = (
@@ -522,8 +550,8 @@ def prepare_area_relationships(
     relationships_dir = relationships_dir.resolve()
     relationships_dir.mkdir(parents=True, exist_ok=True)
 
-    artist_path = mbdump_dir / "artist"
-    release_path = mbdump_dir / "release"
+    artist_path = _resolve_core_table("artist", mbdump_dir, required=False)
+    release_path = _resolve_core_table("release", mbdump_dir, required=False)
 
     artist_area_relationships_path = relationships_dir / "artist_area_relationships.csv"
     release_area_relationships_path = (
@@ -531,7 +559,7 @@ def prepare_area_relationships(
     )
 
     # Artist to Area relationships
-    if artist_path.exists():
+    if artist_path:
         with (
             artist_path.open("r", encoding=encoding) as f,
             artist_area_relationships_path.open(
@@ -557,10 +585,10 @@ def prepare_area_relationships(
                     ):
                         writer.writerow([artist_id, area_id, "FROM_AREA"])
     else:
-        print(f"⚠️  Artist file not found: {artist_path}")
+        print("⚠️  Artist file not found in core dumps (artist TSV/CSV missing).")
 
     # Release to Area relationships
-    if release_path.exists():
+    if release_path:
         with (
             release_path.open("r", encoding=encoding) as f,
             release_area_relationships_path.open(
@@ -586,7 +614,7 @@ def prepare_area_relationships(
                     ):
                         writer.writerow([release_id, area_id, "RELEASED_IN"])
     else:
-        print(f"⚠️  Release file not found: {release_path}")
+        print("⚠️  Release file not found in core dumps (release TSV/CSV missing).")
 
     print(f"✅ Area relationships generated in {relationships_dir}")
 

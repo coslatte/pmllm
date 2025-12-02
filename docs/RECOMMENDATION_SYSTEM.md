@@ -20,7 +20,7 @@ Each invocation must supply the following contextual blobs (typically fetched fr
 
 ## 3. Prompt Skeleton
 
-```
+```text
 You are an intelligent assistant specialized in personalized recommendations for university students and professionals. Your role is to generate recommendations for courses, educational content, professional connections, and music albums based on a knowledge graph (Neo4j) and semantic similarities (Milvus).
 
 <Context>
@@ -86,3 +86,10 @@ Instructions:
 - Keep prompts deterministic when possible (set temperature via caller; default 0.2 in Gemma 3 config).
 - Respect the existing contracts outlined in `plan/PLAN.md` (content recommender, connector, QA responder). Album plans extend the **content recommender** contract.
 - All orchestration code should load this spec to validate outputs before returning them to end users.
+
+## 9. Quality Criteria & Guardrails
+
+- **Personalization mandate**: Always ground each recommendation in the provided `user_profile`, `user_preferences`, and `history`. If those blobs are empty, surface that limitation in the summary.
+- **Confidence floor**: Favor items scoring ≥ 0.7; when nothing meets the bar, emit `"Insufficient recommendations available"` plus a request for more data.
+- **Coverage rules**: Return 5–10 entries whenever adequate data exists and mix recommendation types when the query spans multiple intents.
+- **Ambiguity handling**: If the query is vague, explicitly ask for clarification inside `general_summary` instead of hallucinating.

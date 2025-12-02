@@ -40,11 +40,17 @@ cp .env.example .env
 
 ### Almacén de Chats y Preferencias
 
-| Variable           | Predeterminado              | Descripción                                                                                   |
-| ------------------ | --------------------------- | --------------------------------------------------------------------------------------------- |
-| `CHAT_DB_URL`      | _(vacío)_                   | URL compatible con SQLAlchemy para almacenar chats/preferencias (SQLite, Postgres, etc.).     |
-| `CHAT_DB_PATH`     | `./storage/local_app.db`    | Ruta de archivos para SQLite cuando `CHAT_DB_URL` no está definido.                           |
-| `CHAT_SERVICE_URL` | `http://localhost:8080`     | URL base del servicio FastAPI de recomendaciones (usada por frontend u otros clientes).       |
+| Variable                | Predeterminado                                        | Descripción                                                                                              |
+| ----------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `CHAT_DB_USER`          | `pmllm`                                               | Usuario de la base de datos inyectado en el contenedor Postgres `pmllm-user-db`.                         |
+| `CHAT_DB_PASSWORD`      | `pmllm`                                               | Contraseña de la base de datos (cambie para producción).                                                 |
+| `CHAT_DB_HOST`          | `pmllm-user-db`                                       | Host usado por otros contenedores para alcanzar Postgres en la red Docker.                               |
+| `CHAT_DB_PORT`          | `5432`                                                | Puerto interno de Postgres (dentro del contenedor).                                                      |
+| `CHAT_DB_EXTERNAL_PORT` | `5433`                                                | Puerto publicado al host para inspección local mediante `psql` u otras herramientas.                     |
+| `CHAT_DB_NAME`          | `pmllm_chat`                                          | Nombre de la base de datos que almacena usuarios, preferencias, chats y mensajes.                        |
+| `CHAT_DB_URL`           | `postgresql+psycopg2://pmllm:pmllm@pmllm-user-db:5432/pmllm_chat` | URL compatible con SQLAlchemy consumida por el servicio FastAPI. Déjela vacía para volver a SQLite. |
+| `CHAT_DB_PATH`          | `./storage/local_app.db`                              | Ruta de archivos para SQLite cuando Postgres no está disponible.                                         |
+| `CHAT_SERVICE_URL`      | `http://localhost:8080`                               | URL base del servicio FastAPI de recomendaciones (usada por frontend u otros clientes).                  |
 
 ### Pasarela de Modelos y API
 
@@ -54,6 +60,7 @@ cp .env.example .env
 | `MODEL_GATEWAY_LLM_MODEL`       | `gemma-3-1b-it-qat`                         | Variante conversacional servida en `/v1/chat/completions`.                                    |
 | `MODEL_GATEWAY_DEVICE`          | `cpu`                                       | Dispositivo usado dentro del contenedor (`cpu`, `cuda`, etc.).                                |
 | `MODEL_GATEWAY_DTYPE`           | `float32`                                   | Tipo de dato Torch usado al cargar Gemma dentro del gateway.                                  |
+| `MODEL_GATEWAY_MAX_NEW_TOKENS`  | `512`                                       | Límite duro de tokens que el gateway generará por respuesta.                                 |
 | `EMBEDDING_API_URL`             | `http://localhost:9000/v1/embeddings`       | URL (vista desde el host) para solicitar embeddings al gateway.                               |
 | `EMBEDDING_MODEL`               | `text-embedding-embeddinggemma-300m-qat`    | Nombre del modelo enviado en los payloads de la API.                                          |
 | `EMBEDDING_API_TIMEOUT`         | `60`                                        | Tiempo de espera (segundos) para peticiones de embeddings.                                    |

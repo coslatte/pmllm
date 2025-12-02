@@ -76,6 +76,36 @@ services:
       - "9000:9000"
     volumes:
       - ./data/model_gateway/cache:/root/.cache/huggingface
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - pmllm-net
+
+  ###############################
+  ### USER CHAT DATABASE (PG) ###
+  ###############################
+
+  user-db:
+    container_name: pmllm-user-db
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${CHAT_DB_NAME:-pmllm_chat}
+      POSTGRES_USER: ${CHAT_DB_USER:-pmllm}
+      POSTGRES_PASSWORD: ${CHAT_DB_PASSWORD:-pmllm}
+    ports:
+      - "${CHAT_DB_EXTERNAL_PORT:-5433}:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U ${CHAT_DB_USER:-pmllm} -d ${CHAT_DB_NAME:-pmllm_chat}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - pmllm-net
 
@@ -92,6 +122,7 @@ services:
       - .env
     environment:
       CHAT_DB_PATH: /app/storage/local_app.db
+      CHAT_DB_URL: ${CHAT_DB_URL:-postgresql+psycopg2://pmllm:pmllm@pmllm-user-db:5432/pmllm_chat}
       LLM_API_URL: http://pmllm-model-gateway:9000/v1/chat/completions
       EMBEDDING_API_URL: http://pmllm-model-gateway:9000/v1/embeddings
     ports:
@@ -99,6 +130,7 @@ services:
     depends_on:
       - milvus-standalone
       - model-gateway
+      - user-db
     volumes:
       - ./data/chat_storage:/app/storage
     networks:

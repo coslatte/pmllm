@@ -39,11 +39,17 @@ cp .env.example .env
 
 ### Chat & Preference Store
 
-| Variable          | Default                     | Description                                                                                 |
-| ----------------- | --------------------------- | ------------------------------------------------------------------------------------------- |
-| `CHAT_DB_URL`     | _(blank, falls back to path) | Optional SQLAlchemy-compatible URL for the chat/prefs database (SQLite, Postgres, etc.).    |
-| `CHAT_DB_PATH`    | `./storage/local_app.db`     | Filesystem path for SQLite when `CHAT_DB_URL` is unset.                                     |
-| `CHAT_SERVICE_URL`| `http://localhost:8080`      | Base URL for the FastAPI recommender service (used by the frontend or other clients).       |
+| Variable               | Default                                          | Description                                                                                         |
+| ---------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `CHAT_DB_USER`         | `pmllm`                                          | Database username injected into the `pmllm-user-db` Postgres container.                             |
+| `CHAT_DB_PASSWORD`     | `pmllm`                                          | Database password (update for production).                                                          |
+| `CHAT_DB_HOST`         | `pmllm-user-db`                                  | Hostname used by other containers to reach Postgres on the Docker network.                          |
+| `CHAT_DB_PORT`         | `5432`                                           | Internal Postgres port (container).                                                                 |
+| `CHAT_DB_EXTERNAL_PORT`| `5433`                                           | Optional port published to the host for local inspection via `psql` or GUI tools.                   |
+| `CHAT_DB_NAME`         | `pmllm_chat`                                     | Database name that stores users, preferences, chats, and messages.                                  |
+| `CHAT_DB_URL`          | `postgresql+psycopg2://pmllm:pmllm@pmllm-user-db:5432/pmllm_chat` | SQLAlchemy URL consumed by the FastAPI service. Leave blank to fall back to SQLite via `CHAT_DB_PATH`. |
+| `CHAT_DB_PATH`         | `./storage/local_app.db`                         | Filesystem path for SQLite when Postgres is unavailable.                                            |
+| `CHAT_SERVICE_URL`     | `http://localhost:8080`                          | Base URL for the FastAPI recommender service (used by the frontend or other clients).               |
 
 ### Model Gateway & API Settings
 
@@ -53,6 +59,7 @@ cp .env.example .env
 | `MODEL_GATEWAY_LLM_MODEL`        | `gemma-3-1b-it-qat`                            | Gemma chat variant served from `/v1/chat/completions`.                                      |
 | `MODEL_GATEWAY_DEVICE`           | `cpu`                                          | Device hint for the gateway container (e.g., `cuda`, `cpu`).                                 |
 | `MODEL_GATEWAY_DTYPE`            | `float32`                                      | Torch dtype used when loading Gemma inside the gateway container.                           |
+| `MODEL_GATEWAY_MAX_NEW_TOKENS`   | `512`                                          | Hard cap for tokens the gateway itself will generate per response.                           |
 | `EMBEDDING_API_URL`              | `http://localhost:9000/v1/embeddings`          | Host-facing URL for requesting embeddings from the gateway.                                 |
 | `EMBEDDING_MODEL`                | `text-embedding-embeddinggemma-300m-qat`       | Embedding model name echoed in API payloads (helps the gateway pick the right weights).     |
 | `EMBEDDING_API_TIMEOUT`          | `60`                                           | HTTP timeout (seconds) for embedding calls.                                                 |

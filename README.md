@@ -22,13 +22,14 @@ See `plan/PLAN.md` for the structured, agent-friendly plan and task contracts.
 
 ### Container Topology
 
-The deployment now relies on three long-running containers that communicate over the internal `pmllm-net` bridge network defined in `docker-compose.yml`:
+The deployment now relies on four long-running services that communicate over the internal `pmllm-net` bridge network defined in `docker-compose.yml` (or via `uv run python main.py start`, which shells out to `docker compose up -d` for you):
 
 1. **Milvus stack** (`milvus-standalone` + dependencies) — vector database plus MinIO/etcd.
-2. **Model gateway** (`pmllm-model-gateway`) — serves both embeddings (`/v1/embeddings`) and chat completions (`/v1/chat/completions`) using the Gemma models packaged inside the container.
-3. **Chat/preference service** (`pmllm-recommender-api`) — FastAPI server that persists chats, user preferences, and recommendation history in SQLite (or another database via `CHAT_DB_URL`).
+2. **Model gateway** (`pmllm-model-gateway`) — serves both embeddings (`/v1/embeddings`) and chat completions (`/v1/chat/completions`) using the Gemma models packaged inside the container; model weights are cached under `./data/model_gateway/cache` so Docker Desktop keeps them between runs.
+3. **User chat database** (`pmllm-user-db`) — PostgreSQL 15 instance seeded via env vars (`CHAT_DB_USER`, `CHAT_DB_PASSWORD`, `CHAT_DB_NAME`) that stores the SQLAlchemy models defined in `server/database.py`.
+4. **Chat/preference API** (`pmllm-recommender-api`) — FastAPI server that persists chats, user preferences, and recommendation history through SQLAlchemy (now pointing at Postgres by default, with automatic fallback to SQLite when `CHAT_DB_URL` is unset).
 
-All CLI commands that need embeddings or LLM output communicate with container #2 via HTTP, while personalization features interact with container #3.
+The CLI and API call the gateway via HTTP (`http://pmllm-model-gateway:9000` inside the network) while personalization features interact with the FastAPI service, which in turn connects to Postgres.
 
 ## Data sources (examples)
 
@@ -350,11 +351,8 @@ The following runbooks document the end-to-end flows the user asked for: (1) bui
 
 1. **Prepare raw dumps**: Place the MusicBrainz TSV exports in `TSV_CORE_DIR` and (optionally) `TSV_DERIVED_DIR`, either via `.env` or CLI flags. Extract `.tar` archives so the `.tsv` files are reachable.
 2. **Convert to CSV working sets**: Run `uv run python main.py convert <path-to-tsv> --out <csv-dir>` for each dump (core and derived). This normalizes delimiters, lifts field-size limits, and keeps the files small enough for sampling.
-3. **Generate Neo4j headers + data**: Execute `uv run python main.py prepare-neo4j --core-dir <csv-core> --derived-dir <csv-derived> --output-dir output --sample-percent 100`. This produces
-  - `output/core/headers/*.csv`
-  - `output/core/labeled/labeled_*.csv`
-  - `output/core/relationships/*.csv`
-  - optional derived counterparts under `output/derived/...`
+3. **Generate Neo4j headers + data**: Execute `uv run python main.py prepare-neo4j --core-dir <csv-core> --derived-dir <csv-derived> --output-dir output --sample-percent 100`. This produces `output/core/headers/*.csv`, `output/core/labeled/labeled_*.csv`, `output/core/relationships/*.csv`, plus optional derived counterparts under `output/derived/...`.
+
 4. **Create Neo4j Desktop bundle**: If you want drag-and-drop imports in Neo4j Desktop, run `uv run python main.py prepare-desktop --output-dir output --bundle-dir output/neo4j_desktop`. The helper copies the correct header row into each file so Neo4j Desktop can ingest them without additional setup.
 5. **Bulk import into Neo4j**: Use `uv run python main.py import-neo4j --output-dir output --db-name musicbrainz.db --verify`. The command wraps `neo4j-admin database import` (or legacy mode) and reruns sanity queries via `cypher-shell`.
 6. **Start Neo4j**: Launch Neo4j Desktop or your server process, confirm the Bolt endpoint is available, and run `:use system` → `CREATE DATABASE musicbrainz IF NOT EXISTS` → `:use musicbrainz` in Neo4j Browser to make the imported store queryable.

@@ -1,7 +1,4 @@
-````markdown
 # Especificación del Sistema de Recomendaciones
-
-Este documento define cómo debe operar el agente de recomendación personalizado al combinar señales de Neo4j ("cerebro lógico") y Milvus ("cerebro intuitivo") con el LLM Gemma 3. Codifica el contrato de salida JSON, las entradas requeridas y la experiencia de plan de álbum solicitada para el dominio musical.
 
 ## 1. Propósito
 
@@ -21,7 +18,7 @@ Cada invocación debe suministrar los siguientes bloques contextuales (típicame
 
 ## 3. Esqueleto del Prompt
 
-```
+```text
 Eres un asistente inteligente especializado en recomendaciones personalizadas para estudiantes universitarios y profesionales. Tu rol es generar recomendaciones para cursos, contenido educativo, conexiones profesionales y álbumes de música basados en un grafo de conocimiento (Neo4j) y similitudes semánticas (Milvus).
 
 <Contexto>
@@ -87,4 +84,10 @@ Instrucciones:
 - Mantén los prompts deterministas cuando sea posible (establece temperatura vía llamador; predeterminado 0.2 en configuración de Gemma 3).
 - Respeta los contratos existentes delineados en `plan/PLAN.md` (recomendador de contenido, conector, respondedor QA). Los planes de álbumes extienden el contrato del **recomendador de contenido**.
 - Todo el código de orquestación debe cargar esta especificación para validar salidas antes de devolverlas a los usuarios finales.
-````
+
+## 9. Criterios de Calidad y Salvaguardas
+
+- **Mandato de personalización**: Ancla cada recomendación al `user_profile`, `user_preferences` e `history` proporcionados. Si faltan datos, hazlo evidente en el resumen.
+- **Piso de confianza**: Prioriza ítems con puntuación ≥ 0.7; si no hay suficientes, devuelve "Recomendaciones insuficientes disponibles" y solicita más contexto.
+- **Cobertura mínima**: Entrega entre 5 y 10 entradas cuando haya información adecuada y mezcla tipos si la consulta cubre múltiples intenciones.
+- **Manejo de ambigüedad**: Si la consulta es vaga, solicita aclaraciones dentro de `general_summary` en lugar de improvisar resultados.

@@ -8,6 +8,19 @@ Este archivo documenta todos los cambios realizados en el proyecto, especialment
 > endpoints para embeddings y generación. Revise `EMBEDDING_API_URL`, `LLM_API_URL`, `EMBEDDING_MODEL` y
 > `LLM_MODEL` en `.env` para controlar el gateway.
 
+## 2025-12-03
+
+- **Perfiles del comando build**: Se añadió un enum `BuildProfile` con perfiles seleccionables mediante `--profile/-p` (o un menú interactivo que por defecto usa `full` en entornos no interactivos). Ahora existen flujos dedicados para demo, solo importación Neo4j, solo embeddings y solo conversión, y `_execute_full_build` omite pasos según el plan, valida directorios cuando se reutilizan artefactos y mejora los avisos previos.
+- **Actualizaciones de documentación**: `docs/CLI_USAGE.md` y `docs/es_ES/CLI_USAGE.md` describen la nueva bandera y resumen cada perfil disponible.
+
+## 2025-12-02
+
+- **Constructor de datos en una llamada**: Se añadió `utils/data_builder.py` junto con el comando Typer `build-data` para convertir dumps TAR/TSV, generar los conjuntos CSV y ejecutar la preparación para Neo4j en un solo paso. `main.py` expone el comando y se agregaron pruebas en `tests/test_data_builder.py`.
+- **Salvaguardas del prompt de recomendaciones**: Se extendieron `docs/RECOMMENDATION_SYSTEM.md` y su versión en español con criterios de calidad que cubren personalización, umbrales de confianza, cobertura mínima y manejo de ambigüedad.
+- **Documentación de CLI**: `docs/CLI_USAGE.md` y `docs/es_ES/CLI_USAGE.md` ahora incluyen el flujo `build-data`, ejemplos rápidos, tablas de opciones y correcciones de lint.
+- **Arranque de stack desde CLI**: Se añadió el subcomando `start` a `main.py` para ejecutar `docker compose up -d`, verificar Neo4j/Milvus/gateway y lanzar el servidor FastAPI con opciones `--skip-compose`, `--no-server`, `--host/--port` y `--reload`. Las guías de CLI en EN/ES se actualizaron con instrucciones de uso y resolución de problemas.
+- **Contenedor de Postgres y gateway de modelos**: Se incorporó el servicio `pmllm-user-db` (PostgreSQL 15) más variables de entorno para que el servidor FastAPI persista usuarios/chats vía SQLAlchemy por defecto. Se creó el proyecto `model_gateway` (FastAPI + Transformers) que expone `/v1/embeddings` y `/v1/chat/completions`, se añadieron healthchecks/volúmenes en `docker-compose.yml`, se actualizaron `.env.example`, README y `docs/ENVIRONMENT.md` (EN/ES), y se agregó `psycopg2-binary` a las dependencias de Python.
+
 ## 2025-12-01
 
 - **Gateway de Modelos y Stack de Contenedores**: Se agregó el servicio FastAPI `model_gateway` (embeddings + chat completions) con su Dockerfile, requirements y orquestación en `docker-compose.yml`, además del contenedor `pmllm-recommender-api` respaldado por una ruta SQLite configurable. Se actualizaron `.env`, `.env.example`, docker-compose, helpers del CLI, pruebas y toda la documentación (README, ENVIRONMENT, CLI_USAGE, DISTRIBUCION_DATOS, planes, instrucciones de Copilot en EN/ES) para describir la topología de tres contenedores (Milvus, gateway de modelos, base de chats) y los valores predeterminados de Gemma.
