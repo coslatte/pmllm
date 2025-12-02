@@ -370,17 +370,19 @@ def _execute_full_build(config: str, demo: bool = False) -> None:
             "Ready to continue? (raw dumps located, Neo4j stopped, Milvus + model gateway embedding online, disk space OK)",
             default=False,
         )
-        if not ready_to_continue or not all(checklist.values()):
+        if ready_to_continue and not all(checklist.values()):
             failed_items = [key for key, passed in checklist.items() if not passed]
-            if failed_items:
-                typer.secho(
-                    "Build aborted. Fix the following checklist items before running again:",
-                    fg=ERROR,
-                )
-                for item in failed_items:
-                    typer.secho(f"  - {item}", fg=ERROR)
-            else:
+            typer.secho(
+                "Warning: Some requirements are not satisfied. Are you sure you want to continue?",
+                fg=typer.colors.RED,
+                bold=True,
+            )
+            sure = typer.confirm("Continue anyway?", default=False)
+            if not sure:
                 typer.secho("Build aborted by user.", fg=ERROR)
+                raise typer.Exit(1)
+        elif not ready_to_continue:
+            typer.secho("Build aborted by user.", fg=ERROR)
             raise typer.Exit(1)
 
         headers_dir = output_dir / "core" / "headers"
