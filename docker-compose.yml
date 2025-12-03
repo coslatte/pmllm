@@ -57,40 +57,13 @@ services:
     networks:
       - pmllm-net
 
-  ###########################
-  ### MODEL GATEWAY STACK ###
-  ###########################
-
-  model-gateway:
-    container_name: pmllm-model-gateway
-    build:
-      context: .
-      dockerfile: model_gateway/Dockerfile
-    env_file:
-      - .env
-    environment:
-      MODEL_GATEWAY_EMBEDDING_MODEL: ${MODEL_GATEWAY_EMBEDDING_MODEL:-text-embedding-embeddinggemma-300m-qat}
-      MODEL_GATEWAY_LLM_MODEL: ${MODEL_GATEWAY_LLM_MODEL:-gemma-3-1b-it-qat}
-      MODEL_GATEWAY_DEVICE: ${MODEL_GATEWAY_DEVICE:-cpu}
-    ports:
-      - "9000:9000"
-    volumes:
-      - ./data/model_gateway/cache:/root/.cache/huggingface
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/healthz"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-    networks:
-      - pmllm-net
-
   ###############################
   ### USER CHAT DATABASE (PG) ###
   ###############################
 
   user-db:
     container_name: pmllm-user-db
-    image: postgres:15
+    image: postgres:18
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${CHAT_DB_NAME:-pmllm_chat}
@@ -123,19 +96,52 @@ services:
     environment:
       CHAT_DB_PATH: /app/storage/local_app.db
       CHAT_DB_URL: ${CHAT_DB_URL:-postgresql+psycopg2://pmllm:pmllm@pmllm-user-db:5432/pmllm_chat}
-      LLM_API_URL: http://pmllm-model-gateway:9000/v1/chat/completions
-      EMBEDDING_API_URL: http://pmllm-model-gateway:9000/v1/embeddings
+      LLM_API_URL: http://gemma-chat:8080/v1/chat/completions
+      EMBEDDING_API_URL: http://gemma-embeddings:8080/v1/embeddings
     ports:
       - "8080:8080"
     depends_on:
       - milvus-standalone
-      - model-gateway
+      - gemma-chat
+      - gemma-embeddings
       - user-db
     volumes:
       - ./data/chat_storage:/app/storage
     networks:
       - pmllm-net
 
+  gemma-chat:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    container_name: gemma-chat
+    ports:
+      - "8082:8080"
+    volumes:
+      - D:\Coding\AiModels\lmstudio-community\gemma-3-1B-it-QAT-GGUF:/models
+    command: >
+      -m /models/gemma-3-1B-it-QAT-Q4_0.gguf
+      --host 0.0.0.0
+      --port 8080
+      -t 4
+      -c 2048
+    restart: unless-stopped
+    networks:
+      - pmllm-net
+
+  gemma-embeddings:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    container_name: gemma-embeddings
+    ports:
+      - "8081:8080"
+    volumes:
+      - D:\Coding\AiModels\lmstudio-community\embeddinggemma-300m-qat-GGUF:/models
+    command: >
+      -m /models/embeddinggemma-300m-qat.gguf
+      --host 0.0.0.0
+      --port 8080
+      --embedding
+      -t 4
+      -c 2048
+    restart: unless-stopped
 networks:
   pmllm-net:
     driver: bridge
