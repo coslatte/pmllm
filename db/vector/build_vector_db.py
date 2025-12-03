@@ -53,8 +53,8 @@ MAX_TEXT_LENGTH = 2000
 TRUNCATION_SUFFIX = "..."
 
 # Configuration from Env
-IMPORT_BATCH_SIZE = int(os.getenv("VECTOR_BUILD_IMPORT_BATCH", "100"))
-INSERT_BATCH_SIZE = int(os.getenv("VECTOR_BUILD_INSERT_BATCH", "500"))
+IMPORT_BATCH_SIZE = int(os.getenv("VECTOR_BUILD_IMPORT_BATCH", "500"))
+INSERT_BATCH_SIZE = int(os.getenv("VECTOR_BUILD_INSERT_BATCH", "1000"))
 
 _worker_env_value = os.getenv("VECTOR_BUILD_WORKERS")
 try:
@@ -129,7 +129,7 @@ def process_node_batch(nodes: List[Dict[str, Any]], label: str):
 
     try:
         # Embed in smaller chunks to avoid timeouts
-        chunk_size = 5
+        chunk_size = 50  # Increased to 50 to maximize throughput
         all_vectors = []
         for i in range(0, len(texts), chunk_size):
             chunk_texts = texts[i:i + chunk_size]
@@ -147,14 +147,16 @@ def process_node_batch(nodes: List[Dict[str, Any]], label: str):
             )
             return [], [], [], []
 
-        ids = [n["id"] for n in valid_nodes]
+        # Ensure IDs are strings as per Milvus schema
+        ids = [str(n["id"]) for n in valid_nodes]
         node_labels = [label] * len(valid_nodes)
 
         return ids, vectors, texts, node_labels
 
     except Exception as exc:
+        # If embedding fails, it's likely a service issue. Re-raise to stop the worker.
         print(f"Error embedding batch for {label}: {exc}")
-        return [], [], [], []
+        raise exc
 
 
 def populate(labels: List[str]):
@@ -462,9 +464,9 @@ def _writer_worker(
 
         while completed < transformer_workers:
             try:
-                item = input_queue.get(timeout=60)
+                item = input_queue.get(timeout=300)
             except Empty:
-                # If no message for 60 seconds, assume stuck and break
+                # If no message for 300 seconds, assume stuck and break
                 print(f"Writer timeout waiting for transform workers, flushing remaining buffer")
                 break
             if item == TRANSFORM_SENTINEL:

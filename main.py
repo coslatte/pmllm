@@ -13,6 +13,9 @@ from urllib.request import Request, urlopen
 import typer
 from dotenv import load_dotenv
 
+# Load environment variables from .env file immediately
+load_dotenv(override=True)
+
 from db.vector.build_vector_db import populate
 from utils.cli_helpers import (
     apply_demo_overrides,

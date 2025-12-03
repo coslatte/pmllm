@@ -1,4 +1,5 @@
 import os
+import time
 from typing import List, Sequence
 
 import requests
@@ -12,6 +13,8 @@ EMBEDDING_API_URL = (
 )
 EMBEDDING_API_KEY = os.getenv("EMBEDDING_API_KEY") or os.getenv("MODEL_API_KEY")
 EMBEDDING_TIMEOUT = float(os.getenv("EMBEDDING_API_TIMEOUT", "60"))
+MAX_RETRIES = 5
+RETRY_DELAY = 2.0
 
 
 def _build_headers() -> dict[str, str]:
@@ -22,30 +25,52 @@ def _build_headers() -> dict[str, str]:
 
 
 def _call_embedding_endpoint(payload: dict) -> List[List[float]]:
-    response = requests.post(
-        EMBEDDING_API_URL,
-        json=payload,
-        headers=_build_headers(),
-        timeout=EMBEDDING_TIMEOUT,
-    )
-    response.raise_for_status()
-    data = response.json()
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = requests.post(
+                EMBEDDING_API_URL,
+                json=payload,
+                headers=_build_headers(),
+                timeout=EMBEDDING_TIMEOUT,
+            )
+            response.raise_for_status()
+            data = response.json()
 
-    embeddings_data = data.get("data")
-    if not embeddings_data:
-        raise RuntimeError("Embedding API response does not contain 'data'.")
+            embeddings_data = data.get("data")
+            if not embeddings_data:
+                raise RuntimeError("Embedding API response does not contain 'data'.")
 
-    # Ensure deterministic ordering by index when provided
-    if isinstance(embeddings_data[0], dict) and "index" in embeddings_data[0]:
-        embeddings_data = sorted(embeddings_data, key=lambda item: item.get("index", 0))
+            # Ensure deterministic ordering by index when provided
+            if isinstance(embeddings_data[0], dict) and "index" in embeddings_data[0]:
+                embeddings_data = sorted(embeddings_data, key=lambda item: item.get("index", 0))
 
-    vectors: List[List[float]] = []
-    for item in embeddings_data:
-        vector = item.get("embedding")
-        if not isinstance(vector, Sequence):
-            raise RuntimeError("Embedding item missing 'embedding' field")
-        vectors.append(list(vector))
-    return vectors
+            vectors: List[List[float]] = []
+            for item in embeddings_data:
+                vector = item.get("embedding")
+                if not isinstance(vector, Sequence):
+                    raise RuntimeError("Embedding item missing 'embedding' field")
+                vectors.append(list(vector))
+            return vectors
+
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            if attempt < MAX_RETRIES - 1:
+                sleep_time = RETRY_DELAY * (2**attempt)
+                print(f"Embedding API connection error: {e}. Retrying in {sleep_time}s...")
+                time.sleep(sleep_time)
+            else:
+                raise
+        except Exception as e:
+            # For other errors (e.g. 400 Bad Request), fail immediately or retry?
+            # 500 errors should probably be retried too.
+            if isinstance(e, requests.exceptions.HTTPError) and 500 <= e.response.status_code < 600:
+                if attempt < MAX_RETRIES - 1:
+                    sleep_time = RETRY_DELAY * (2**attempt)
+                    print(f"Embedding API server error: {e}. Retrying in {sleep_time}s...")
+                    time.sleep(sleep_time)
+                    continue
+            raise
+
+    raise RuntimeError("Max retries exceeded for embedding API")
 
 
 def embed(text: str) -> List[float]:
@@ -72,6 +97,13 @@ def embed_batch(texts: List[str]) -> List[List[float]]:
     try:
         return _call_embedding_endpoint({"model": EMBEDDING_MODEL, "input": texts})
     except Exception as exc:
-        # Fall back to sequential calls so we at least make progress during builds
         print(f"Embedding batch request failed ({exc}); retrying sequentially.")
-        return [embed(t) for t in texts]
+        # Try sequential with the same retry logic in embed()
+        results = []
+        for t in texts:
+            try:
+                results.append(embed(t))
+            except Exception as e:
+                print(f"Failed to embed single item: {e}")
+                raise
+        return results

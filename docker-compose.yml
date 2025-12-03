@@ -135,12 +135,14 @@ services:
     volumes:
       - D:\Coding\AiModels\lmstudio-community\embeddinggemma-300m-qat-GGUF:/models
     command: >
-      -m /models/embeddinggemma-300m-qat.gguf
+      -m /models/embeddinggemma-300m-qat-Q4_0.gguf
       --host 0.0.0.0
       --port 8080
       --embedding
-      -t 4
+      -t 8
       -c 2048
+      -np 4
+      -cb
     restart: unless-stopped
 networks:
   pmllm-net:
