@@ -59,7 +59,11 @@ class Converter:
                                 convert_to_csv(tsv_file, dst, src_delimiter="\t")
 
                                 converted += 1
-                                print(f"Converted from tar: {tsv_file} -> {dst}")
+                                print(
+                                    "Converted from tar: "
+                                    f"{Converter._short_path(tsv_file)} -> "
+                                    f"{Converter._short_path(dst)}"
+                                )
                             except ValueError:
                                 pass  # Skip non-TSV in tar
                 else:
@@ -70,7 +74,19 @@ class Converter:
                     convert_to_csv(file, dst, src_delimiter="\t")
 
                     converted += 1
-                    print(f"Converted direct: {file} -> {dst}")
+                    print(
+                        "Converted direct: "
+                        f"{Converter._short_path(file)} -> "
+                        f"{Converter._short_path(dst)}"
+                    )
             except (ValueError, tarfile.TarError) as e:
                 print(f"Skipped {file}: {e}")
         return converted
+
+    @staticmethod
+    def _short_path(path: Path, depth: int = 3) -> str:
+        parts = path.parts
+        tail = parts[-depth:]
+        short = Path(*tail) if tail else path
+        prefix = "...\\" if len(parts) > depth else ""
+        return prefix + str(short)

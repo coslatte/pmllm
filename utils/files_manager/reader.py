@@ -90,7 +90,7 @@ def convert_to_csv(
     src: Path,
     dst: Path,
     src_delimiter: Optional[str] = None,
-    dst_delimiter: str = ",",
+    dst_delimiter: str = "\t",
     encoding: str = "utf-8",
 ) -> None:
     """Convert a delimited text file to CSV."""

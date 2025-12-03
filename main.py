@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional, cast
+from typing import List, Optional, Sequence, cast
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -117,6 +117,29 @@ PLAN_SELECTION_ORDER = [
     BuildProfile.EMBEDDINGS_ONLY,
     BuildProfile.CONVERSION_ONLY,
 ]
+
+
+_DELIMITER_ESCAPES = {
+    "\\t": "\t",
+    "\\n": "\n",
+    "\\r": "\r",
+    "\\0": "\0",
+    "\\\\": "\\",
+}
+
+
+def _normalize_delimiter(raw: Optional[str], fallback: str = "\t") -> str:
+    """Return a one-character delimiter, expanding common escape sequences."""
+
+    if not raw:
+        return fallback
+    resolved = _DELIMITER_ESCAPES.get(raw, raw)
+    if len(resolved) != 1:
+        raise typer.BadParameter(
+            f"Delimiter must be a single character, received {resolved!r}",
+            param_hint="delimiter",
+        )
+    return resolved
 
 
 @dataclass(frozen=True)
@@ -504,7 +527,7 @@ def build_data_command(
 
     try:
         sample_fraction = max(0.0, min(sample_percent, 100.0)) / 100.0
-        delim = "\t" if delimiter == "\\t" else delimiter
+        delim = _normalize_delimiter(delimiter)
         config = DataBuildConfig(
             core_source=Path(core_dir),
             derived_source=Path(derived_dir),
@@ -589,11 +612,12 @@ def prepare_neo4j(
     """
     try:
         sample_fraction = max(0.0, min(sample_percent, 100.0)) / 100.0
+        delim = _normalize_delimiter(delimiter)
         handle_prepare(
             core_dir=Path(core_dir),
             derived_dir=Path(derived_dir),
             output_dir=Path(output_dir),
-            delimiter=delimiter,
+            delimiter=delim,
             encoding=encoding,
             skip_headers=skip_headers,
             skip_labels=skip_labels,
@@ -659,7 +683,7 @@ def prepare_desktop(
         summary = create_desktop_bundle(
             output_dir=Path(output_dir),
             bundle_dir=Path(bundle_dir) if bundle_dir else None,
-            delimiter="\t" if delimiter == "\\t" else delimiter,
+            delimiter=_normalize_delimiter(delimiter),
             encoding=encoding,
             include_derived_nodes=include_derived_nodes,
             include_extended_relationships=include_extended_relationships,
@@ -740,7 +764,7 @@ def import_neo4j(
             labeled_dir=Path(output_dir) / "core" / "labeled",
             relationships_dir=Path(output_dir) / "core" / "relationships",
             db_name=db_name,
-            delimiter=delimiter,
+            delimiter=_normalize_delimiter(delimiter),
             array_delimiter=array_delimiter,
             skip_bad_relationships=not allow_bad_relationships,
             multiline_fields=multiline_fields,
@@ -759,6 +783,51 @@ def import_neo4j(
     except Exception as e:
         typer.secho(f"Error: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1)
+
+
+def _has_data_rows(csv_path: Path) -> bool:
+    """Return True when the CSV file contains at least one non-empty line."""
+
+    try:
+        with csv_path.open("r", encoding="utf-8") as handle:
+            for line in handle:
+                if line.strip():
+                    return True
+    except (OSError, UnicodeDecodeError):
+        return False
+    return False
+
+
+def _assert_sampled_nodes_exist(
+    labeled_dir: Path,
+    required_slugs: Sequence[str],
+    sample_percent: float,
+) -> None:
+    """Ensure essential labeled CSVs exist and contain data before import."""
+
+    missing: List[str] = []
+    empty: List[str] = []
+
+    for slug in required_slugs:
+        csv_file = labeled_dir / f"labeled_{slug}.csv"
+        if not csv_file.exists():
+            missing.append(slug)
+            continue
+        if not _has_data_rows(csv_file):
+            empty.append(slug)
+
+    if missing or empty:
+        issues: List[str] = []
+        if missing:
+            issues.append(f"missing files ({', '.join(missing)})")
+        if empty:
+            issues.append(f"empty files ({', '.join(empty)})")
+        detail = "; ".join(issues)
+        raise RuntimeError(
+            "Neo4j import aborted: prepared dataset contains no sampled rows for "
+            f"{detail}. Current SAMPLE_PERCENT={sample_percent:.4f}%. Increase the "
+            "sampling percentage and regenerate the CSV artifacts."
+        )
 
 
 def _execute_full_build(config: str, plan: BuildPlan) -> None:
@@ -802,9 +871,7 @@ def _execute_full_build(config: str, plan: BuildPlan) -> None:
         )
         sample_percent = float(os.getenv("SAMPLE_PERCENT", "100.0"))
         sample_seed = int(os.getenv("SAMPLE_SEED", "42"))
-        delimiter = os.getenv("DELIMITER", "\t")
-        if delimiter == "\\t":
-            delimiter = "\t"
+        delimiter = _normalize_delimiter(os.getenv("DELIMITER", "\t"))
         encoding = os.getenv("ENCODING", "utf-8")
         skip_headers = os.getenv("SKIP_HEADERS", "false").lower() == "true"
         skip_labels = os.getenv("SKIP_LABELS", "false").lower() == "true"
@@ -1031,6 +1098,16 @@ def _execute_full_build(config: str, plan: BuildPlan) -> None:
             _require_path(headers_dir, "headers directory")
             _require_path(labeled_core_dir, "core labeled directory")
             _require_path(relationships_core_dir, "core relationships directory")
+            _assert_sampled_nodes_exist(
+                labeled_dir=labeled_core_dir,
+                required_slugs=(
+                    "artist",
+                    "recording",
+                    "release",
+                    "release_group",
+                ),
+                sample_percent=sample_percent,
+            )
             handle_import_neo4j(
                 headers_dir=headers_dir,
                 labeled_dir=labeled_core_dir,

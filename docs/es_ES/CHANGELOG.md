@@ -8,10 +8,18 @@ Este archivo documenta todos los cambios realizados en el proyecto, especialment
 > endpoints para embeddings y generación. Revise `EMBEDDING_API_URL`, `LLM_API_URL`, `EMBEDDING_MODEL` y
 > `LLM_MODEL` en `.env` para controlar el gateway.
 
+## 2025-12-04
+
+- **Normalización de delimitadores**: Se añadió el helper `_normalize_delimiter` en `main.py` y se conectó con los comandos `build-data`, `prepare-neo4j`, `prepare-desktop`, `import-neo4j` y el flujo de perfiles, de modo que valores como `\t` en `.env` se transforman en un tab real. Con ello se evita el error de Python "delimiter must be a 1-character string" y todas las fases usan exactamente el mismo separador.
+- **Actualización del dataset Neo4j**: Se regeneraron los CSV con el delimitador corregido y se volvió a ejecutar la importación masiva, obteniendo ~515 k nodos muestreados y 2.4 k relaciones en el corte del 1 % más reciente.
+
 ## 2025-12-03
 
 - **Perfiles del comando build**: Se añadió un enum `BuildProfile` con perfiles seleccionables mediante `--profile/-p` (o un menú interactivo que por defecto usa `full` en entornos no interactivos). Ahora existen flujos dedicados para demo, solo importación Neo4j, solo embeddings y solo conversión, y `_execute_full_build` omite pasos según el plan, valida directorios cuando se reutilizan artefactos y mejora los avisos previos.
 - **Actualizaciones de documentación**: `docs/CLI_USAGE.md` y `docs/es_ES/CLI_USAGE.md` describen la nueva bandera y resumen cada perfil disponible.
+- **Límite mínimo de muestreo demo**: Se actualizaron las variables de `.env` para que los modos demo/prueba mantengan al menos el 1 % de las filas, evitando importaciones diminutas en Neo4j y Milvus.
+- **Guardia previa a la importación**: `main.py` ahora valida que los CSV etiquetados tengan datos antes de ejecutar el neo4j-admin bulk import, deteniendo la ejecución si el muestreo no produjo nodos.
+- **Rutas en los logs de conversión**: Se acortó la salida de `utils/files_manager/converter.py` para que los mensajes de conversión TSV→CSV muestren únicamente los últimos directorios (con prefijo `...\`) en lugar de las rutas absolutas completas.
 
 ## 2025-12-02
 

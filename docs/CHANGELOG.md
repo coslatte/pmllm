@@ -9,10 +9,18 @@ This file documents all changes made to the project, especially those implemente
 > generation endpoints. Configuration variables such as `EMBEDDING_API_URL`,
 > `LLM_API_URL`, `EMBEDDING_MODEL` and `LLM_MODEL` control the gateway behavior.
 
+## 2025-12-04
+
+- **Delimiter Normalization**: Added a `_normalize_delimiter` helper in `main.py` and wired it into `build-data`, `prepare-neo4j`, `prepare-desktop`, `import-neo4j`, and the build-plan execution path. CLI options and `.env` values like `\t` now resolve to a true tab character, preventing Python's "delimiter must be a 1-character string" crashes and keeping conversions/imports consistent across commands.
+- **Neo4j Dataset Refresh**: Rebuilt the Neo4j-ready CSVs with the corrected delimiter handling and reran the bulk import, yielding ~515k sampled nodes and 2.4k relationships from the latest 1% dataset slice.
+
 ## 2025-12-03
 
 - **Build Command Profiles**: Introduced selectable build profiles in `main.py` backed by a `BuildProfile` enum and `--profile/-p` option. The CLI now offers interactive profile selection (falling back to `full` in non-interactive shells) with dedicated flows for demo, Neo4j-import-only, embeddings-only, and conversion-only scenarios. `_execute_full_build` skips steps according to the chosen plan, adds stronger directory validation when reusing artifacts, and improves readiness prompts.
 - **Documentation Updates**: Documented the new profiles/flag in `docs/CLI_USAGE.md` and `docs/es_ES/CLI_USAGE.md`, including brief descriptions of each profile.
+- **Demo Sampling Floor**: Increased `.env` demo/test sampling percentages to 1% so `build --demo` generates enough rows for Neo4j and Milvus without manual overrides.
+- **Empty Import Guard**: Added a labeled-CSV sanity check in `main.py` that aborts the Neo4j bulk import when the sampled dataset lacks core nodes, preventing silent zero-node graphs.
+- **Conversion Log Paths**: Trimmed the TSV→CSV conversion logs in `utils/files_manager/converter.py` so both source and destination paths show only the final directories (prefixed with `...\`) instead of full absolute paths.
 
 ## 2025-12-02
 
