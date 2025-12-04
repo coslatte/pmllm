@@ -1261,24 +1261,67 @@ def build_vector(
 def query(
     question: str = typer.Argument(..., help="The question to ask the RAG system"),
     k: int = typer.Option(5, help="Number of context documents to retrieve"),
+    debug: bool = typer.Option(
+        False,
+        "--debug/--no-debug",
+        help="Print prompt, context slices y coincidencias para depurar el flujo",
+    ),
 ):
     """
     Ask a question to the RAG system (Hybrid Search: Vector + Graph).
     """
-    try:
-        from db.vector.rag_pipeline import rag_answer
+    from db.neo4j import neo4j_handler
+    from server.query_engine import run_semantic_query
 
+    try:
         typer.secho(f"Question: {question}", fg=typer.colors.WHITE)
         typer.secho("Thinking...", fg=typer.colors.WHITE)
 
-        answer = rag_answer(question, k=k)
+        result = run_semantic_query(question, top_k=k, include_debug=debug)
 
         typer.secho("\nAnswer:", fg=typer.colors.GREEN, bold=True)
-        typer.echo(answer)
+        typer.echo(result.answer)
+
+        if debug and result.debug:
+            typer.secho("\n[DEBUG] Prompt enviado al LLM:", fg=typer.colors.CYAN)
+            typer.echo(result.debug.prompt)
+
+            typer.secho("\n[DEBUG] Contexto suministrado:", fg=typer.colors.CYAN)
+            for idx, ctx in enumerate(result.context, start=1):
+                preview = ctx if len(ctx) <= 400 else ctx[:400] + "..."
+                typer.echo(f"({idx}) {preview}")
+
+            typer.secho("\n[DEBUG] Vecinos en Milvus:", fg=typer.colors.CYAN)
+            for hit in result.debug.vector_hits:
+                label = hit.get("label") or "?"
+                score = hit.get("score")
+                identifier = hit.get("id")
+                score_str = (
+                    f"{score:.4f}"
+                    if isinstance(score, (int, float))
+                    else str(score or "n/a")
+                )
+                typer.echo(f"- score={score_str} id={identifier} label={label}")
+
+            typer.secho("\n[DEBUG] Conexiones Neo4j:", fg=typer.colors.CYAN)
+            if result.debug.graph_context:
+                for line in result.debug.graph_context:
+                    typer.echo(f"- {line}")
+            else:
+                typer.echo("(sin relaciones relacionadas)")
+
+            if result.tag_matches:
+                typer.secho("\n[DEBUG] Coincidencias por tag/genre:", fg=typer.colors.CYAN)
+                for match in result.tag_matches:
+                    typer.echo(
+                        f"- {match.artist_name} | tags={', '.join(match.tags) or '-'} | géneros={', '.join(match.genres) or '-'}"
+                    )
 
     except Exception as e:
         typer.secho(f"Error during query: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1)
+    finally:
+        neo4j_handler.close()
 
 
 if __name__ == "__main__":

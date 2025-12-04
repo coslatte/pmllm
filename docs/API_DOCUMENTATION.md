@@ -190,3 +190,60 @@ Generates music recommendations based on user profile and RAG.
   ]
 }
 ```
+
+### Conversational Queries
+
+#### Ask the Assistant
+
+`POST /query`
+
+Sends a natural language question from the frontend, runs the RAG pipeline (Milvus + Neo4j + LLM), and returns the generated answer together with any structured matches detected for artist tags/genres.
+
+**Request Body:**
+
+```json
+{
+  "question": "tags de todos los artistas que son Jesus",
+  "chat_id": "uuid (optional)",
+  "top_k": 8,
+  "debug": false
+}
+```
+
+- `chat_id` is optional; when provided, both the user question and the assistant response are persisted in the chat history.
+- `top_k` controls how many Milvus vectors are retrieved (min 1, max 20).
+- `debug` (default `false`) enables a verbose payload that shows the constructed prompt, the retrieved vector hits, and the Cypher snippets used during retrieval—useful for UI instrumentation or QA.
+
+**Response:**
+
+```json
+{
+  "answer": "string",
+  "context": ["retrieved snippet", "..."],
+  "latency_ms": 123.4,
+  "artist_tag_search": {
+    "term": "jesus",
+    "match_count": 3,
+    "items": [
+      {
+        "node_id": "Artist:123",
+        "artist_name": "Jesus Culture",
+        "matched_terms": ["Jesus"],
+        "tags": ["christian", "jesus"],
+        "genres": ["worship"]
+      }
+    ]
+  },
+  "debug": {
+    "prompt": "...full prompt...",
+    "context_sections": ["context 1", "context 2"],
+    "graph_context": ["Artist A HAS_TAG Tag B"],
+    "vector_hits": [
+      {"id": 123, "label": "Artist", "score": 0.12}
+    ],
+    "tag_term": "jesus"
+  }
+}
+```
+
+When no tag/genre intent is detected, `artist_tag_search` is omitted. The optional `debug` block appears only when `debug=true` in the request, and the `context` array mirrors the sections sent to the LLM prompt for transparency/debugging on the frontend.

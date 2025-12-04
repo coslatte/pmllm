@@ -1,3 +1,4 @@
+import atexit
 import math
 import os
 from neo4j import GraphDatabase
@@ -68,6 +69,9 @@ def close():
     if _driver:
         _driver.close()
         _driver = None
+
+
+atexit.register(close)
 
 
 def list_labels_and_reltypes():

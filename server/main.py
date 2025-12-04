@@ -1,12 +1,12 @@
 import os
 import sys
 import uuid
-from typing import List
+from typing import Dict, List, Optional
 from datetime import datetime
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 
@@ -16,6 +16,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from server.database import SessionLocal, init_db, User, Preference, Chat, Message
 from server.milvus_handler import upsert_user_profile, get_user_profile_vector
 from server.recommendation_engine import generate_recommendations_for_user
+from server.query_engine import run_semantic_query
 
 # Load environment variables
 load_dotenv()
@@ -93,6 +94,43 @@ class MessageResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class QueryRequest(BaseModel):
+    question: str
+    chat_id: str | None = None
+    top_k: int = Field(default=8, ge=1, le=20)
+    debug: bool = False
+
+
+class ArtistTagItem(BaseModel):
+    node_id: str
+    artist_name: str
+    matched_terms: List[str]
+    tags: List[str]
+    genres: List[str]
+
+
+class ArtistTagSearch(BaseModel):
+    term: str
+    match_count: int
+    items: List[ArtistTagItem]
+
+
+class QueryDebugInfo(BaseModel):
+    prompt: str
+    context_sections: List[str]
+    graph_context: List[str]
+    vector_hits: List[Dict[str, object]]
+    tag_term: Optional[str]
+
+
+class QueryAnswer(BaseModel):
+    answer: str
+    context: List[str]
+    latency_ms: float
+    artist_tag_search: Optional[ArtistTagSearch] = None
+    debug: Optional[QueryDebugInfo] = None
 
 
 # Helper to generate profile text
@@ -250,6 +288,72 @@ async def get_recommendations(user_id: str, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=500, detail=f"Error generating recommendations: {str(e)}"
         )
+
+
+@app.post("/query", response_model=QueryAnswer)
+async def query_assistant(payload: QueryRequest, db: Session = Depends(get_db)):
+    chat = None
+    if payload.chat_id:
+        chat = db.query(Chat).filter(Chat.id == payload.chat_id).first()
+        if not chat:
+            raise HTTPException(status_code=404, detail="Chat not found")
+
+    start_time = datetime.utcnow()
+    result = run_semantic_query(
+        payload.question, top_k=payload.top_k, include_debug=payload.debug
+    )
+    latency_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
+
+    if chat:
+        user_message = Message(
+            id=str(uuid.uuid4()),
+            chat_id=chat.id,
+            role="user",
+            content=payload.question,
+        )
+        assistant_message = Message(
+            id=str(uuid.uuid4()),
+            chat_id=chat.id,
+            role="assistant",
+            content=result.answer,
+        )
+        db.add_all([user_message, assistant_message])
+        db.commit()
+
+    artist_payload = None
+    if result.tag_term:
+        artist_payload = ArtistTagSearch(
+            term=result.tag_term,
+            match_count=len(result.tag_matches),
+            items=[
+                ArtistTagItem(
+                    node_id=match.node_id,
+                    artist_name=match.artist_name,
+                    matched_terms=match.matched_terms,
+                    tags=match.tags,
+                    genres=match.genres,
+                )
+                for match in result.tag_matches
+            ],
+        )
+
+    debug_payload = None
+    if result.debug:
+        debug_payload = QueryDebugInfo(
+            prompt=result.debug.prompt,
+            context_sections=result.debug.context_sections,
+            graph_context=result.debug.graph_context,
+            vector_hits=result.debug.vector_hits,
+            tag_term=result.debug.tag_term,
+        )
+
+    return QueryAnswer(
+        answer=result.answer,
+        context=result.context,
+        latency_ms=latency_ms,
+        artist_tag_search=artist_payload,
+        debug=debug_payload,
+    )
 
 
 if __name__ == "__main__":

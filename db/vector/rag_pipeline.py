@@ -1,9 +1,17 @@
 import os
+from dataclasses import dataclass
 from typing import Any, Dict, List
 
 from .helper.llm_handler import generate_response
 from .vector_query import search
 from db.neo4j.neo4j_handler import query_graph
+
+
+@dataclass(slots=True)
+class ContextBundle:
+    full_context: List[str]
+    vector_hits: List[Dict[str, Any]]
+    graph_context: List[str]
 
 
 def llm_generate(prompt: str) -> str:
@@ -40,7 +48,7 @@ def get_graph_context(ids: List[int]) -> List[str]:
     MATCH (n)-[r]-(m)
     WHERE elementId(n) IN $ids
     RETURN 
-        coalesce(n.name, n.title, 'Entity') + ' ' + type(r) + ' ' + coalesce(m.name, m.title, 'Entity') as desc
+        coalesce(n.name, 'Entity') + ' ' + type(r) + ' ' + coalesce(m.name, 'Entity') as desc
     LIMIT 20
     """
     
@@ -52,22 +60,14 @@ def get_graph_context(ids: List[int]) -> List[str]:
         return []
 
 
-def build_context(query: str, top_k: int = 5) -> List[str]:
-    """Retrieve relevant context documents for a query.
+def build_context_bundle(query: str, top_k: int = 5) -> ContextBundle:
+    """Retrieve context plus debug artifacts for a query."""
 
-    Args:
-        query: The search query
-        top_k: Number of top results to retrieve (default: 5)
-
-    Returns:
-        List of text strings from relevant documents
-    """
-    # 1. Vector Search
     results = search(query, limit=top_k, return_raw=True)
-    
+
     vector_context: List[str] = []
     node_ids: List[int] = []
-    
+
     for row in results:
         text = row.get("text")
         nid = row.get("id")
@@ -75,13 +75,21 @@ def build_context(query: str, top_k: int = 5) -> List[str]:
             vector_context.append(text)
         if nid is not None:
             node_ids.append(nid)
-            
-    # 2. Graph Search (using IDs from vector search)
+
     graph_context = get_graph_context(node_ids)
-    
-    # Combine contexts
     full_context = vector_context + ["--- GRAPH CONNECTIONS ---"] + graph_context
-    return full_context
+
+    return ContextBundle(
+        full_context=full_context,
+        vector_hits=results,
+        graph_context=graph_context,
+    )
+
+
+def build_context(query: str, top_k: int = 5) -> List[str]:
+    """Backward-compatible helper returning only the merged context list."""
+
+    return build_context_bundle(query, top_k).full_context
 
 
 def build_prompt(query: str, context: List[str]) -> str:
