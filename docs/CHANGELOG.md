@@ -11,8 +11,11 @@ This file documents all changes made to the project, especially those implemente
 
 ## 2025-12-04
 
+- **Containerized Runtime Fixes**: Updated `docker-compose.yml` so the Postgres service mounts `./data/postgres` at `/var/lib/postgresql`, matching the 18+ layout and preventing the health-check restart loop. Existing data was snapshotted under `data/postgres_legacy_*` before recreating the fresh volume.
+- **Gateway Endpoint Alignment**: Pointed `.env` `EMBEDDING_API_URL`/`EMBEDDING_URL` to `http://127.0.0.1:8081/v1/embeddings` and `LLM_API_URL` to `http://127.0.0.1:8082/v1/chat/completions`, so local CLI tooling and the RAG pipeline hit the Gemma containers that run inside `docker compose` instead of the old LM Studio port (1234).
 - **Delimiter Normalization**: Added a `_normalize_delimiter` helper in `main.py` and wired it into `build-data`, `prepare-neo4j`, `prepare-desktop`, `import-neo4j`, and the build-plan execution path. CLI options and `.env` values like `\t` now resolve to a true tab character, preventing Python's "delimiter must be a 1-character string" crashes and keeping conversions/imports consistent across commands.
 - **Neo4j Dataset Refresh**: Rebuilt the Neo4j-ready CSVs with the corrected delimiter handling and reran the bulk import, yielding ~515k sampled nodes and 2.4k relationships from the latest 1% dataset slice.
+- **Layered Test Sampling**: `db/vector/build_vector_db.py` now honors `TEST_SAMPLE_PERCENT`, so enabling `TEST_MODE` lets us take a percentage of the already-downsampled graph (e.g., 10% of the 1% Neo4j slice). `.env` defaults now set `SAMPLE_PERCENT=1` and `TEST_SAMPLE_PERCENT=10` to keep demo/test runs lightweight by default.
 
 ## 2025-12-03
 

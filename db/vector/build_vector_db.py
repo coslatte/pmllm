@@ -91,14 +91,16 @@ DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() == "true"
 def _effective_sample_percent() -> float:
     """Return effective sampling percent, clamped to [0, 100].
 
-    Priority:
-    - If TEST_MODE is enabled, process all available nodes (100%).
-    - Otherwise, use SAMPLE_PERCENT from env.
+    When TEST_MODE is enabled we only process TEST_SAMPLE_PERCENT% of the
+    already-sampled graph slice, enabling layered sampling (e.g., 1% overall
+    import, then 10% of that subset for Milvus tests).
     """
+
+    base_percent = max(0.0, min(SAMPLE_PERCENT, 100.0))
     if TEST_MODE:
-        percent = 100.0
+        percent = base_percent * (TEST_SAMPLE_PERCENT / 100.0)
     else:
-        percent = SAMPLE_PERCENT
+        percent = base_percent
     return max(0.0, min(percent, 100.0))
 
 

@@ -10,8 +10,11 @@ Este archivo documenta todos los cambios realizados en el proyecto, especialment
 
 ## 2025-12-04
 
+- **Correcciones en contenedores**: Se actualizó `docker-compose.yml` para montar `./data/postgres` en `/var/lib/postgresql`, acorde con Postgres 18+, evitando el ciclo de reinicio del health-check. Antes de recrear la carpeta limpia se resguardó el contenido previo dentro de `data/postgres_legacy_*`.
+- **Alineación de endpoints del gateway**: Se ajustaron `EMBEDDING_API_URL`/`EMBEDDING_URL` a `http://127.0.0.1:8081/v1/embeddings` y `LLM_API_URL` a `http://127.0.0.1:8082/v1/chat/completions` dentro de `.env`, de modo que el CLI y el pipeline RAG consuman los contenedores Gemma del `docker compose` en lugar del puerto heredado 1234 de LM Studio.
 - **Normalización de delimitadores**: Se añadió el helper `_normalize_delimiter` en `main.py` y se conectó con los comandos `build-data`, `prepare-neo4j`, `prepare-desktop`, `import-neo4j` y el flujo de perfiles, de modo que valores como `\t` en `.env` se transforman en un tab real. Con ello se evita el error de Python "delimiter must be a 1-character string" y todas las fases usan exactamente el mismo separador.
 - **Actualización del dataset Neo4j**: Se regeneraron los CSV con el delimitador corregido y se volvió a ejecutar la importación masiva, obteniendo ~515 k nodos muestreados y 2.4 k relaciones en el corte del 1 % más reciente.
+- **Muestreo en capas para pruebas**: `db/vector/build_vector_db.py` ahora respeta `TEST_SAMPLE_PERCENT`, de modo que con `TEST_MODE=true` podemos tomar un porcentaje del subconjunto ya reducido (p. ej., 10 % del 1 %). El `.env` queda con `SAMPLE_PERCENT=1` y `TEST_SAMPLE_PERCENT=10` para mantener livianos los flujos demo/test.
 
 ## 2025-12-03
 
