@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 from datetime import datetime
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
@@ -15,7 +15,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from server.database import SessionLocal, init_db, User, Preference, Chat, Message
 from server.milvus_handler import upsert_user_profile, get_user_profile_vector
-from server.recommendation_engine import generate_recommendations_for_user
+from server.recommendation_engine import (
+    generate_recommendations_for_user,
+    recommend_albums_by_genres,
+)
 from server.query_engine import run_semantic_query
 
 # Load environment variables
@@ -24,8 +27,13 @@ load_dotenv()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize DB on startup
-    init_db()
+    try:
+        # Initialize DB on startup
+        init_db()
+        print("Database initialized successfully")
+    except Exception as e:
+        print(f"Error initializing database: {e}")
+        raise
     yield
 
 
@@ -131,6 +139,32 @@ class QueryAnswer(BaseModel):
     latency_ms: float
     artist_tag_search: Optional[ArtistTagSearch] = None
     debug: Optional[QueryDebugInfo] = None
+
+
+class AlbumRecommendationRequest(BaseModel):
+    user_id: Optional[str] = None
+    include_genres: List[str] = Field(default_factory=list)
+    exclude_genres: List[str] = Field(default_factory=list)
+    limit: int = Field(default=12, ge=1, le=50)
+    min_genre_overlap: int = Field(default=1, ge=1, le=10)
+
+
+class AlbumRecommendationItem(BaseModel):
+    release_id: str
+    release_name: str
+    release_group_name: Optional[str] = None
+    artists: List[str] = Field(default_factory=list)
+    matched_genres: List[str] = Field(default_factory=list)
+    tags: List[str] = Field(default_factory=list)
+    connections: List[str] = Field(default_factory=list)
+    matched_count: int
+    score: float
+
+
+class AlbumRecommendationResponse(BaseModel):
+    generated_from: List[str]
+    exclude_filters: List[str]
+    recommendations: List[AlbumRecommendationItem]
 
 
 # Helper to generate profile text
@@ -255,11 +289,16 @@ def get_chat_messages(chat_id: str, db: Session = Depends(get_db)):
 
 
 @app.post("/recommendations")
-async def get_recommendations(user_id: str, db: Session = Depends(get_db)):
-    # 1. Get user preferences from DB
+async def get_recommendations(user_id: str = Query(..., description="Target user id"), db: Session = Depends(get_db)):
+    """Return RAG-based recommendations for a user profile.
+
+    Handles common failure modes (missing preferences, Milvus outages, LLM errors)
+    and surfaces actionable HTTP errors instead of crashing the server.
+    """
+
     prefs = db.query(Preference).filter(Preference.user_id == user_id).first()
     if not prefs:
-        raise HTTPException(status_code=404, detail="User preferences not found")
+        raise HTTPException(status_code=404, detail="User preferences not found. Update /preferences first.")
 
     user_prefs = {
         "fav_genres": prefs.get_genres(),
@@ -267,27 +306,82 @@ async def get_recommendations(user_id: str, db: Session = Depends(get_db)):
         "fav_instruments": prefs.get_instruments(),
     }
 
-    # 2. Get user profile text from Milvus (or regenerate it if missing)
-    vector_data = await get_user_profile_vector(user_id)
+    if not any(user_prefs.values()):
+        raise HTTPException(
+            status_code=400,
+            detail="User preferences are empty. Add at least one genre, artist, or instrument before requesting recommendations.",
+        )
+
+    try:
+        vector_data = await get_user_profile_vector(user_id)
+    except Exception as exc:
+        # Milvus outages should degrade gracefully instead of killing the API.
+        print(f"Error retrieving profile vector for {user_id}: {exc}")
+        vector_data = None
+
     if vector_data and vector_data.get("text"):
         profile_text = vector_data["text"]
     else:
-        # Fallback: generate text
         profile_text = generate_profile_text(
             user_prefs["fav_genres"],
             user_prefs["fav_artists"],
             user_prefs["fav_instruments"],
         )
 
-    # 3. Generate recommendations
     try:
-        recommendations = generate_recommendations_for_user(profile_text, user_prefs)
-        return recommendations
-    except Exception as e:
-        print(f"Error generating recommendations: {e}")
+        return generate_recommendations_for_user(profile_text, user_prefs)
+    except TimeoutError as exc:
+        raise HTTPException(status_code=504, detail=f"LLM timeout: {exc}") from exc
+    except Exception as exc:
+        print(f"Error generating recommendations for {user_id}: {exc}")
+        raise HTTPException(status_code=502, detail="Failed to generate recommendations. Try again later.") from exc
+
+
+@app.post("/recommendations/albums", response_model=AlbumRecommendationResponse)
+def get_album_recommendations(
+    payload: AlbumRecommendationRequest, db: Session = Depends(get_db)
+):
+    include_genres = [genre.strip() for genre in payload.include_genres if genre and genre.strip()]
+    exclude_genres = [genre.strip() for genre in payload.exclude_genres if genre and genre.strip()]
+
+    if payload.user_id:
+        user = db.query(User).filter(User.id == payload.user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        prefs = db.query(Preference).filter(Preference.user_id == user.id).first()
+        if not include_genres and prefs:
+            include_genres = prefs.get_genres()
+
+    include_original = sorted({genre for genre in include_genres if genre})
+    exclude_original = sorted({genre for genre in exclude_genres if genre})
+
+    include_lower = [genre.lower() for genre in include_original]
+    exclude_lower = [genre.lower() for genre in exclude_original]
+
+    if not include_lower:
         raise HTTPException(
-            status_code=500, detail=f"Error generating recommendations: {str(e)}"
+            status_code=400,
+            detail="No genres provided. Supply include_genres or set preferences for the user.",
         )
+
+    try:
+        recommendations = recommend_albums_by_genres(
+            include_lower,
+            exclude_lower,
+            limit=payload.limit,
+            min_overlap=min(payload.min_genre_overlap, len(include_lower)),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        print(f"Error querying Neo4j for album recommendations: {exc}")
+        raise HTTPException(status_code=502, detail="Graph lookup failed. Try again later.") from exc
+
+    return AlbumRecommendationResponse(
+        generated_from=include_original,
+        exclude_filters=exclude_original,
+        recommendations=[AlbumRecommendationItem(**item) for item in recommendations],
+    )
 
 
 @app.post("/query", response_model=QueryAnswer)
@@ -299,9 +393,14 @@ async def query_assistant(payload: QueryRequest, db: Session = Depends(get_db)):
             raise HTTPException(status_code=404, detail="Chat not found")
 
     start_time = datetime.utcnow()
-    result = run_semantic_query(
-        payload.question, top_k=payload.top_k, include_debug=payload.debug
-    )
+    try:
+        result = run_semantic_query(
+            payload.question, top_k=payload.top_k, include_debug=payload.debug
+        )
+    except Exception as exc:
+        print(f"Error running semantic query: {exc}")
+        raise HTTPException(status_code=502, detail="Semantic search failed. Try again later.") from exc
+
     latency_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
 
     if chat:

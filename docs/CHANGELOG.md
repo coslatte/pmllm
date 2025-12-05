@@ -9,6 +9,12 @@ This file documents all changes made to the project, especially those implemente
 > generation endpoints. Configuration variables such as `EMBEDDING_API_URL`,
 > `LLM_API_URL`, `EMBEDDING_MODEL` and `LLM_MODEL` control the gateway behavior.
 
+## 2025-12-05
+
+- **HTTP Health Checks**: Relaxed the `start` command's HTTP ping so endpoints that respond with client errors (e.g., 404/405 when accessed via GET) are still treated as reachable. This prevents false negatives when verifying the Gemma embedding/chat services that only expose POST routes.
+- **Runtime DB Override**: `server/database.py` now honors `CHAT_DB_RUNTIME_URL`, letting local CLI runs target the Postgres port exposed on the host (`127.0.0.1:5433`) without touching the container-friendly `CHAT_DB_URL` value.
+- **Album Recommendations API**: Added `POST /recommendations/albums`, which queries Neo4j for releases connected to the user's preferred genres (and filters out disliked ones). It returns structured album suggestions with the graph relationships that justify each pick so the frontend can render a "genres you might love" shelf.
+
 ## 2025-12-04
 
 - **Containerized Runtime Fixes**: Updated `docker-compose.yml` so the Postgres service mounts `./data/postgres` at `/var/lib/postgresql`, matching the 18+ layout and preventing the health-check restart loop. Existing data was snapshotted under `data/postgres_legacy_*` before recreating the fresh volume.

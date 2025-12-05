@@ -13,9 +13,6 @@ from urllib.request import Request, urlopen
 import typer
 from dotenv import load_dotenv
 
-# Load environment variables from .env file immediately
-load_dotenv(override=True)
-
 from db.vector.build_vector_db import populate
 from utils.cli_helpers import (
     apply_demo_overrides,
@@ -169,7 +166,11 @@ def _http_ping(url: str, timeout: float = 5.0) -> bool:
         with urlopen(request, timeout=timeout) as response:  # type: ignore[call-arg]
             status = getattr(response, "status", None) or response.getcode()
             return status is not None and status < 500
-    except (URLError, HTTPError, OSError):
+    except HTTPError as exc:
+        status = getattr(exc, "code", None)
+        # Treat client errors (404/405) as success since some services only accept POST/HEAD.
+        return status is not None and status < 500
+    except (URLError, OSError):
         return False
 
 

@@ -213,6 +213,56 @@ Genera recomendaciones musicales basadas en el perfil del usuario y RAG.
 }
 ```
 
+#### Recomendaciones de Álbumes por Género
+
+`POST /recommendations/albums`
+
+Devuelve una lista determinista de álbumes (lanzamientos) calculada directamente desde Neo4j. Este endpoint expone cómo cada álbum se conecta con los géneros proporcionados, ideal para el componente del frontend que muestra "música que te podría gustar" sin invocar al LLM.
+
+**Cuerpo de la Petición:**
+
+```json
+{
+  "user_id": "uuid (opcional)",
+  "include_genres": ["rock", "britpop"],
+  "exclude_genres": ["metal"],
+  "limit": 12,
+  "min_genre_overlap": 2
+}
+```
+
+- Si `include_genres` está vacío y se envía `user_id`, la API usa las preferencias almacenadas para ese usuario.
+- `exclude_genres` filtra cualquier álbum conectado a esos géneros.
+- `min_genre_overlap` define cuántos géneros favoritos debe compartir un álbum para ser incluido (por defecto 1).
+
+**Respuesta:**
+
+```json
+{
+  "generated_from": ["rock", "britpop"],
+  "exclude_filters": ["metal"],
+  "recommendations": [
+    {
+      "release_id": "Release:123",
+      "release_name": "(What's the Story) Morning Glory?",
+      "release_group_name": "Morning Glory",
+      "artists": ["Oasis"],
+      "matched_genres": ["rock", "britpop"],
+      "tags": ["classic", "90s"],
+      "connections": ["L_RELEASE_GENRE:rock", "L_RELEASE_GENRE:britpop"],
+      "matched_count": 2,
+      "score": 2.4
+    }
+  ]
+}
+```
+
+Cada elemento incluye:
+
+- `matched_genres`: géneros favoritos que originaron la recomendación.
+- `connections`: tipos de relación en Neo4j que justifican la sugerencia (útil para tooltips o explicaciones).
+- `score`: métrica simple basada en el solapamiento de géneros más señales de artistas/tags.
+
 ### Consultas Conversacionales
 
 #### Preguntar al Asistente

@@ -21,32 +21,37 @@ The frontend is a React application that communicates with this API via HTTP req
 
 ### Integration Guide for Frontend Developers
 
-1.  **User Management**:
-    -   On first visit, create a user via `POST /users`. Store the returned `id` (UUID) in local storage or state.
-    -   Use this `user_id` for all subsequent requests.
+1. **User Management**:
 
-2.  **Onboarding/Preferences**:
-    -   Collect user preferences (genres, artists, instruments).
-    -   Send to `POST /preferences` with the `user_id`.
+    - On first visit, create a user via `POST /users`. Store the returned `id` (UUID) in local storage or state.
+    - Use this `user_id` for all subsequent requests.
 
-3.  **Chat Interface**:
-    -   Create a new chat session via `POST /chat`.
-    -   Send user messages via `POST /message`.
-    -   Poll or fetch message history via `GET /chat/{chat_id}/messages`.
+2. **Onboarding/Preferences**:
 
-4.  **Recommendations**:
-    -   Call `POST /recommendations` with `user_id` to get personalized suggestions based on the stored profile.
+    - Collect user preferences (genres, artists, instruments).
+    - Send to `POST /preferences` with the `user_id`.
+
+3. **Chat Interface**:
+
+    - Create a new chat session via `POST /chat`.
+    - Send user messages via `POST /message`.
+    - Poll or fetch message history via `GET /chat/{chat_id}/messages`.
+
+4. **Recommendations**:
+    - Call `POST /recommendations` with `user_id` to get personalized suggestions based on the stored profile.
 
 ## Endpoints
 
 ### User Management
 
 #### Create User
+
 `POST /users`
 
 Creates a new user profile.
 
 **Request Body:**
+
 ```json
 {
   "username": "string"
@@ -54,6 +59,7 @@ Creates a new user profile.
 ```
 
 **Response:**
+
 ```json
 {
   "id": "uuid",
@@ -65,11 +71,13 @@ Creates a new user profile.
 ### Preferences
 
 #### Update Preferences
+
 `POST /preferences`
 
 Updates user musical preferences and regenerates the vector profile.
 
 **Request Body:**
+
 ```json
 {
   "user_id": "uuid",
@@ -80,6 +88,7 @@ Updates user musical preferences and regenerates the vector profile.
 ```
 
 **Response:**
+
 ```json
 {
   "status": "success",
@@ -89,11 +98,13 @@ Updates user musical preferences and regenerates the vector profile.
 ```
 
 #### Get Profile Vector
+
 `GET /get_profile_vector?user_id={user_id}`
 
 Retrieves the vector embedding data for a user.
 
 **Response:**
+
 ```json
 {
   "id": "uuid",
@@ -105,11 +116,13 @@ Retrieves the vector embedding data for a user.
 ### Chat System
 
 #### Create Chat
+
 `POST /chat`
 
 Starts a new chat session.
 
 **Request Body:**
+
 ```json
 {
   "user_id": "uuid"
@@ -117,6 +130,7 @@ Starts a new chat session.
 ```
 
 **Response:**
+
 ```json
 {
   "id": "uuid",
@@ -126,11 +140,13 @@ Starts a new chat session.
 ```
 
 #### Send Message
+
 `POST /message`
 
 Sends a message to the chat.
 
 **Request Body:**
+
 ```json
 {
   "chat_id": "uuid",
@@ -140,6 +156,7 @@ Sends a message to the chat.
 ```
 
 **Response:**
+
 ```json
 {
   "id": "uuid",
@@ -151,11 +168,13 @@ Sends a message to the chat.
 ```
 
 #### Get Chat Messages
+
 `GET /chat/{chat_id}/messages`
 
 Retrieves history for a specific chat.
 
 **Response:**
+
 ```json
 [
   {
@@ -171,14 +190,17 @@ Retrieves history for a specific chat.
 ### Recommendations
 
 #### Get Recommendations
+
 `POST /recommendations`
 
 Generates music recommendations based on user profile and RAG.
 
 **Request Parameters:**
+
 - `user_id`: UUID (query parameter)
 
 **Response:**
+
 ```json
 {
   "recommendations": [
@@ -190,6 +212,56 @@ Generates music recommendations based on user profile and RAG.
   ]
 }
 ```
+
+#### Genre-Based Album Recommendations
+
+`POST /recommendations/albums`
+
+Returns a deterministic list of album (release) suggestions derived directly from the Neo4j graph. The endpoint surfaces how each album connects to the supplied genres so the frontend can render "based on your tastes" shelves without running the full LLM pipeline.
+
+**Request Body:**
+
+```json
+{
+  "user_id": "uuid (optional)",
+  "include_genres": ["rock", "britpop"],
+  "exclude_genres": ["metal"],
+  "limit": 12,
+  "min_genre_overlap": 2
+}
+```
+
+- When `include_genres` is empty and `user_id` is provided, the API falls back to the stored preferences for that user.
+- `exclude_genres` filters out albums that are connected to any of the listed genres.
+- `min_genre_overlap` enforces how many liked genres an album must share to be returned (defaults to 1).
+
+**Response:**
+
+```json
+{
+  "generated_from": ["rock", "britpop"],
+  "exclude_filters": ["metal"],
+  "recommendations": [
+    {
+      "release_id": "Release:123",
+      "release_name": "(What's the Story) Morning Glory?",
+      "release_group_name": "Morning Glory",
+      "artists": ["Oasis"],
+      "matched_genres": ["rock", "britpop"],
+      "tags": ["classic", "90s"],
+      "connections": ["L_RELEASE_GENRE:rock", "L_RELEASE_GENRE:britpop"],
+      "matched_count": 2,
+      "score": 2.4
+    }
+  ]
+}
+```
+
+Each recommendation item includes:
+
+- `matched_genres`: the liked genres that caused the album to surface.
+- `connections`: the Neo4j relationship types that link the release to those genres (useful for tooltips).
+- `score`: a simple relevance metric based on genre overlap plus supporting artist/tag signals.
 
 ### Conversational Queries
 
@@ -238,9 +310,7 @@ Sends a natural language question from the frontend, runs the RAG pipeline (Milv
     "prompt": "...full prompt...",
     "context_sections": ["context 1", "context 2"],
     "graph_context": ["Artist A HAS_TAG Tag B"],
-    "vector_hits": [
-      {"id": 123, "label": "Artist", "score": 0.12}
-    ],
+    "vector_hits": [{ "id": 123, "label": "Artist", "score": 0.12 }],
     "tag_term": "jesus"
   }
 }

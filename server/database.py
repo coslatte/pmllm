@@ -14,8 +14,10 @@ DEFAULT_DB_PATH = os.getenv("CHAT_DB_PATH", "./storage/local_app.db")
 if DEFAULT_DB_PATH.startswith("./"):
     os.makedirs(os.path.dirname(DEFAULT_DB_PATH), exist_ok=True)
 
-SQLALCHEMY_DATABASE_URL = os.getenv(
-    "CHAT_DB_URL", f"sqlite:///{DEFAULT_DB_PATH}"
+SQLALCHEMY_DATABASE_URL = (
+    os.getenv("CHAT_DB_RUNTIME_URL")
+    or os.getenv("CHAT_DB_URL")
+    or f"sqlite:///{DEFAULT_DB_PATH}"
 )
 
 connect_args = {"check_same_thread": False} if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else {}

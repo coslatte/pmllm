@@ -1,11 +1,12 @@
 import json
 import os
 import sys
-from typing import Dict, Any
+from typing import Any, Dict, List
 
 # Add project root to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from db.neo4j.neo4j_handler import query_graph
 from db.vector.rag_pipeline import build_context, llm_generate
 
 
@@ -78,3 +79,100 @@ Generate the recommendations now in JSON format.
             + "...",
             "raw_response": response_text,
         }
+
+
+def _normalize_genres(values: List[str]) -> List[str]:
+    return sorted({value.strip().lower() for value in values if value and value.strip()})
+
+
+def recommend_albums_by_genres(
+    include_genres: List[str],
+    exclude_genres: List[str] | None = None,
+    *,
+    limit: int = 12,
+    min_overlap: int = 1,
+) -> List[Dict[str, Any]]:
+    """Return albums (releases) that align with the provided genre filters."""
+
+    include = _normalize_genres(include_genres)
+    exclude = _normalize_genres(exclude_genres or [])
+
+    if not include:
+        raise ValueError("At least one include_genre is required to compute album recommendations.")
+
+    safe_limit = max(1, min(limit, 50))
+    safe_overlap = max(1, min(min_overlap, len(include)))
+
+    cypher = """
+    MATCH (release:Release)-[genre_rel]-(genre:Genre)
+    WHERE (size($include) = 0 OR toLower(genre.name) IN $include)
+      AND (size($exclude) = 0 OR NOT EXISTS {
+        MATCH (release)-[bad_rel]-(bad:Genre)
+        WHERE toLower(bad.name) IN $exclude
+        })
+    WITH release,
+       collect(DISTINCT genre) AS liked_nodes,
+       collect(DISTINCT {name: genre.name, rel: type(genre_rel)}) AS genre_links
+    WHERE size(liked_nodes) >= CASE WHEN size($include) = 0 THEN 1 ELSE $min_overlap END
+    OPTIONAL MATCH (release)-[rg_rel]-(rg:ReleaseGroup)
+    OPTIONAL MATCH (release)<-[artist_rel]-(artist:Artist)
+    OPTIONAL MATCH (release)-[tag_rel]-(tag:Tag)
+        WITH release,
+          rg,
+          liked_nodes,
+          genre_links,
+          [name IN collect(DISTINCT artist.name) WHERE name IS NOT NULL | name] AS artist_names,
+          [name IN collect(DISTINCT tag.name) WHERE name IS NOT NULL | name] AS tag_names
+    RETURN elementId(release) AS release_id,
+         release.name AS release_name,
+         coalesce(rg.name, release.name) AS release_group_name,
+         [g IN liked_nodes | g.name] AS matched_genres,
+         genre_links,
+         artist_names AS artists,
+         tag_names AS tags,
+         size(liked_nodes) AS matched_count,
+         size(artist_names) AS artist_count,
+         size(tag_names) AS tag_count,
+         (size(liked_nodes) * 1.0) + (size(artist_names) * 0.2) + (size(tag_names) * 0.1) AS relevance_score
+    ORDER BY relevance_score DESC, release_name ASC
+    LIMIT $limit
+    """
+
+    params = {
+      "include": include,
+      "exclude": exclude,
+      "limit": safe_limit,
+      "min_overlap": safe_overlap,
+    }
+
+    rows = query_graph(cypher, params)
+    recommendations: List[Dict[str, Any]] = []
+    for row in rows:
+      release_id = row.get("release_id")
+      release_name = row.get("release_name")
+      if not release_id or not release_name:
+        continue
+
+      connections: List[str] = []
+      for link in row.get("genre_links") or []:
+        name = link.get("name") if isinstance(link, dict) else None
+        rel = link.get("rel") if isinstance(link, dict) else None
+        if name:
+          label = rel or "RELATED"
+          connections.append(f"{label}:{name}")
+
+      recommendations.append(
+        {
+          "release_id": release_id,
+          "release_name": release_name,
+          "release_group_name": row.get("release_group_name"),
+          "matched_genres": row.get("matched_genres") or [],
+          "artists": row.get("artists") or [],
+          "tags": row.get("tags") or [],
+          "connections": connections,
+          "score": float(row.get("relevance_score") or 0.0),
+          "matched_count": int(row.get("matched_count") or 0),
+        }
+      )
+
+    return recommendations

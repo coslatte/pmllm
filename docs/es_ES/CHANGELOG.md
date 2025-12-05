@@ -8,6 +8,12 @@ Este archivo documenta todos los cambios realizados en el proyecto, especialment
 > endpoints para embeddings y generación. Revise `EMBEDDING_API_URL`, `LLM_API_URL`, `EMBEDDING_MODEL` y
 > `LLM_MODEL` en `.env` para controlar el gateway.
 
+## 2025-12-05
+
+- **Verificación HTTP más permisiva**: Se ajustó la comprobación HTTP del comando `start` para considerar alcanzables los endpoints que responden con errores de cliente (404/405) cuando se les hace un GET. Así evitamos falsos positivos al validar los servicios Gemma de embeddings/chat que solo exponen rutas POST.
+- **Override de BD en tiempo de ejecución**: `server/database.py` ahora reconoce `CHAT_DB_RUNTIME_URL`, lo que permite que las ejecuciones locales del CLI apunten al puerto expuesto en el host (`127.0.0.1:5433`) sin modificar el valor de `CHAT_DB_URL` que necesitan los contenedores.
+- **API de álbumes por género**: Se añadió `POST /recommendations/albums`, un endpoint que consulta Neo4j para listar lanzamientos conectados con los géneros favoritos (y excluye los que el usuario marcó como no deseados). La respuesta incluye las relaciones de grafo que justifican cada sugerencia para que el frontend pueda mostrar la estantería de "álbumes que podrías disfrutar".
+
 ## 2025-12-04
 
 - **Correcciones en contenedores**: Se actualizó `docker-compose.yml` para montar `./data/postgres` en `/var/lib/postgresql`, acorde con Postgres 18+, evitando el ciclo de reinicio del health-check. Antes de recrear la carpeta limpia se resguardó el contenido previo dentro de `data/postgres_legacy_*`.
