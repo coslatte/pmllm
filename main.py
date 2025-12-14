@@ -13,6 +13,10 @@ from urllib.request import Request, urlopen
 import typer
 from dotenv import load_dotenv
 
+# Load environment variables from .env file BEFORE importing project modules
+# that read env at import time (e.g., neo4j_handler, milvus handlers, etc.).
+load_dotenv(override=True)
+
 from db.vector.build_vector_db import populate
 from utils.cli_helpers import (
     apply_demo_overrides,
@@ -33,9 +37,6 @@ from utils.helpers.convert_handler import handle_convert
 from utils.helpers.desktop_bundle_handler import create_desktop_bundle
 from utils.helpers.import_handler import handle_import_neo4j
 from utils.helpers.prepare_handler import handle_prepare
-
-# Load environment variables from .env file immediately
-load_dotenv(override=True)
 
 
 app = typer.Typer()

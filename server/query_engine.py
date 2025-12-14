@@ -123,7 +123,7 @@ def fetch_artists_by_tag(term: str, limit: int = 25) -> List[ArtistTagMatch]:
     cypher = """
         MATCH (a:Artist)-[rel]->(label)
         WHERE any(l IN labels(label) WHERE l IN ['Tag', 'Genre'])
-      AND toLower(label.name) CONTAINS toLower($term)
+            AND toLower(label.name) CONTAINS toLower($term)
     WITH DISTINCT a, collect(DISTINCT label) AS matched_nodes
     OPTIONAL MATCH (a)-[tag_rel]->(tag:Tag)
     WITH a, matched_nodes, collect(DISTINCT tag.name) AS tags
@@ -131,10 +131,10 @@ def fetch_artists_by_tag(term: str, limit: int = 25) -> List[ArtistTagMatch]:
         WHERE 'Genre' IN labels(genre)
         WITH a, matched_nodes, tags, collect(DISTINCT genre.name) AS genres
     RETURN elementId(a) AS node_id,
-           a.name AS artist_name,
-           [node IN matched_nodes WHERE node.name IS NOT NULL | node.name] AS matched_terms,
-           [tag_name IN tags WHERE tag_name IS NOT NULL | tag_name] AS tags,
-           [genre_name IN genres WHERE genre_name IS NOT NULL | genre_name] AS genres
+        a.name AS artist_name,
+        [node IN matched_nodes WHERE node.name IS NOT NULL | node.name] AS matched_terms,
+        [tag_name IN tags WHERE tag_name IS NOT NULL | tag_name] AS tags,
+        [genre_name IN genres WHERE genre_name IS NOT NULL | genre_name] AS genres
     ORDER BY artist_name
     LIMIT $limit
     """
@@ -151,7 +151,9 @@ def fetch_artists_by_tag(term: str, limit: int = 25) -> List[ArtistTagMatch]:
             ArtistTagMatch(
                 node_id=node_id,
                 artist_name=artist_name,
-                matched_terms=sorted({t for t in (row.get("matched_terms") or []) if t}),
+                matched_terms=sorted(
+                    {t for t in (row.get("matched_terms") or []) if t}
+                ),
                 tags=sorted({t for t in (row.get("tags") or []) if t}),
                 genres=sorted({g for g in (row.get("genres") or []) if g}),
             )
@@ -188,7 +190,9 @@ def run_semantic_query(
     context_sections.extend(bundle.full_context)
 
     if not context_sections:
-        context_sections = ["No se recuperó contexto de Neo4j ni Milvus para esta pregunta."]
+        context_sections = [
+            "No se recuperó contexto de Neo4j ni Milvus para esta pregunta."
+        ]
 
     prompt = build_prompt(question, context_sections)
     answer = llm_generate(prompt)

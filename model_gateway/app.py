@@ -150,6 +150,7 @@ async def healthcheck() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.post("/embeddings")
 @app.post("/v1/embeddings")
 async def create_embeddings(request: EmbeddingRequest) -> dict:
     texts = request.input if isinstance(request.input, list) else [request.input]

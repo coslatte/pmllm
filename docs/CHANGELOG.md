@@ -9,6 +9,13 @@ This file documents all changes made to the project, especially those implemente
 > generation endpoints. Configuration variables such as `EMBEDDING_API_URL`,
 > `LLM_API_URL`, `EMBEDDING_MODEL` and `LLM_MODEL` control the gateway behavior.
 
+## 2025-12-14
+
+- **Embedding Endpoint Fix**: Fixed the model gateway to support both `/embeddings` and `/v1/embeddings` paths for OpenAI-compatible API calls. The llama.cpp containers expose embeddings on `/v1/embeddings`, so the embedder now correctly routes requests.
+- **Docker Port Configuration**: Corrected the embedding API URL in `.env` from port 8081 to 8082. The `gemma-embeddings` container runs on port 8082 (with `--embedding` flag), while port 8081 hosts the chat model without embedding support.
+- **Sampling Configuration Update**: Updated `DEMO_VECTOR_SAMPLE_PERCENT` from 1 to 100 to process 100% of the sampled data during vector embedding builds instead of only 1%.
+- **TEST_MODE Disabled**: Set `TEST_MODE=false` in `.env` to prevent additional sampling reduction during vector database construction.
+
 ## 2025-12-05
 
 - **HTTP Health Checks**: Relaxed the `start` command's HTTP ping so endpoints that respond with client errors (e.g., 404/405 when accessed via GET) are still treated as reachable. This prevents false negatives when verifying the Gemma embedding/chat services that only expose POST routes.
