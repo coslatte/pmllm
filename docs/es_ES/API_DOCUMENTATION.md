@@ -269,13 +269,13 @@ Cada elemento incluye:
 
 `POST /query`
 
-Envía una pregunta en lenguaje natural desde el frontend, ejecuta el pipeline RAG (Milvus + Neo4j + LLM) y devuelve la respuesta generada junto con coincidencias estructuradas para tags o géneros de artistas.
+Envía una pregunta en lenguaje natural desde el frontend, ejecuta el pipeline RAG (Milvus + Neo4j + LLM) y devuelve la respuesta generada junto con coincidencias estructuradas. El endpoint soporta múltiples tipos de consultas incluyendo canciones, álbumes, artistas, colaboraciones y más.
 
 **Cuerpo de la Petición:**
 
 ```json
 {
-  "question": "tags de todos los artistas que son Jesus",
+  "question": "¿Cuáles son las canciones de Queen?",
   "chat_id": "uuid (opcional)",
   "top_k": 8,
   "debug": false
@@ -293,29 +293,97 @@ Envía una pregunta en lenguaje natural desde el frontend, ejecuta el pipeline R
   "answer": "string",
   "context": ["fragmento recuperado", "..."],
   "latency_ms": 123.4,
+  "query_type": "song|album|artist_detail|collaboration|similar|area|popular|tag|general",
   "artist_tag_search": {
-    "term": "jesus",
+    "term": "rock",
     "match_count": 3,
     "items": [
       {
         "node_id": "Artist:123",
-        "artist_name": "Jesus Culture",
-        "matched_terms": ["Jesus"],
-        "tags": ["christian", "jesus"],
-        "genres": ["worship"]
+        "artist_name": "Queen",
+        "matched_terms": ["rock"],
+        "tags": ["classic rock", "british"],
+        "genres": ["rock"]
       }
     ]
   },
+  "songs": [
+    {
+      "node_id": "Recording:456",
+      "song_name": "Bohemian Rhapsody",
+      "artist_name": "Queen",
+      "album_name": "A Night at the Opera",
+      "duration_ms": 354000,
+      "duration_formatted": "5:54",
+      "tags": ["classic", "opera"]
+    }
+  ],
+  "albums": [
+    {
+      "node_id": "Release:789",
+      "album_name": "A Night at the Opera",
+      "artist_name": "Queen",
+      "release_date": "1975-11-21",
+      "track_count": 12,
+      "tags": ["classic rock"]
+    }
+  ],
+  "artists": [
+    {
+      "node_id": "Artist:123",
+      "artist_name": "Queen",
+      "area": "United Kingdom",
+      "begin_date": "1970",
+      "end_date": null,
+      "artist_type": "Group",
+      "tags": ["british", "legendary"],
+      "genres": ["rock", "glam rock"],
+      "album_count": 15,
+      "song_count": 180
+    }
+  ],
+  "collaborations": [
+    {
+      "artist1_name": "Queen",
+      "artist2_name": "David Bowie",
+      "recording_name": "Under Pressure",
+      "recording_id": "Recording:999"
+    }
+  ],
   "debug": {
     "prompt": "...prompt completo...",
     "context_sections": ["contexto 1", "contexto 2"],
     "graph_context": ["Artist A HAS_TAG Tag B"],
-    "vector_hits": [
-      {"id": 123, "label": "Artist", "score": 0.12}
-    ],
-    "tag_term": "jesus"
+    "vector_hits": [{"id": 123, "label": "Artist", "score": 0.12}],
+    "tag_term": "rock"
   }
 }
 ```
+
+**Tipos de Consulta:**
+
+El campo `query_type` indica qué tipo de consulta fue detectada:
+
+| Tipo | Descripción | Ejemplos de Preguntas |
+|------|-------------|----------------------|
+| `song` | Búsqueda de canciones | "canciones de Queen", "temas de The Beatles" |
+| `album` | Búsqueda de álbumes | "álbumes de Coldplay", "discos de rock" |
+| `artist_detail` | Información de artista | "¿quién es Adele?", "información sobre Queen" |
+| `collaboration` | Colaboraciones | "colaboraciones de Drake", "feat de Eminem" |
+| `similar` | Artistas similares | "artistas similares a Metallica" |
+| `area` | Artistas por ubicación | "artistas de México", "músicos de España" |
+| `popular` | Populares/Top | "artistas más populares", "mejores bandas" |
+| `tag` | Búsqueda por tag/género | "artistas de rock", "músicos de jazz" |
+| `general` | Pregunta general | Cualquier otra pregunta |
+
+**Arrays de Respuesta:**
+
+- `songs`: Se llena al buscar canciones/grabaciones
+- `albums`: Se llena al buscar álbumes/lanzamientos
+- `artists`: Se llena para detalles de artista, artistas similares, consultas por área o populares
+- `collaborations`: Se llena para consultas de colaboraciones
+- `artist_tag_search`: Se llena para búsquedas de artistas por tag/género
+
+Cuando no se encuentran coincidencias para una categoría, el array correspondiente está vacío. El bloque `debug` solo aparece cuando `debug=true` en la petición.
 
 Si no se detecta una intención vinculada a tags o géneros, `artist_tag_search` se omite. El bloque `debug` solo aparece cuando `debug=true` en la petición, y el arreglo `context` replica las secciones enviadas al prompt del LLM para facilitar la depuración desde el frontend.

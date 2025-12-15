@@ -269,13 +269,13 @@ Each recommendation item includes:
 
 `POST /query`
 
-Sends a natural language question from the frontend, runs the RAG pipeline (Milvus + Neo4j + LLM), and returns the generated answer together with any structured matches detected for artist tags/genres.
+Sends a natural language question from the frontend, runs the RAG pipeline (Milvus + Neo4j + LLM), and returns the generated answer together with any structured matches detected. The endpoint supports multiple query types including songs, albums, artists, collaborations, and more.
 
 **Request Body:**
 
 ```json
 {
-  "question": "tags de todos los artistas que son Jesus",
+  "question": "¿Cuáles son las canciones de Queen?",
   "chat_id": "uuid (optional)",
   "top_k": 8,
   "debug": false
@@ -293,27 +293,95 @@ Sends a natural language question from the frontend, runs the RAG pipeline (Milv
   "answer": "string",
   "context": ["retrieved snippet", "..."],
   "latency_ms": 123.4,
+  "query_type": "song|album|artist_detail|collaboration|similar|area|popular|tag|general",
   "artist_tag_search": {
-    "term": "jesus",
+    "term": "rock",
     "match_count": 3,
     "items": [
       {
         "node_id": "Artist:123",
-        "artist_name": "Jesus Culture",
-        "matched_terms": ["Jesus"],
-        "tags": ["christian", "jesus"],
-        "genres": ["worship"]
+        "artist_name": "Queen",
+        "matched_terms": ["rock"],
+        "tags": ["classic rock", "british"],
+        "genres": ["rock"]
       }
     ]
   },
+  "songs": [
+    {
+      "node_id": "Recording:456",
+      "song_name": "Bohemian Rhapsody",
+      "artist_name": "Queen",
+      "album_name": "A Night at the Opera",
+      "duration_ms": 354000,
+      "duration_formatted": "5:54",
+      "tags": ["classic", "opera"]
+    }
+  ],
+  "albums": [
+    {
+      "node_id": "Release:789",
+      "album_name": "A Night at the Opera",
+      "artist_name": "Queen",
+      "release_date": "1975-11-21",
+      "track_count": 12,
+      "tags": ["classic rock"]
+    }
+  ],
+  "artists": [
+    {
+      "node_id": "Artist:123",
+      "artist_name": "Queen",
+      "area": "United Kingdom",
+      "begin_date": "1970",
+      "end_date": null,
+      "artist_type": "Group",
+      "tags": ["british", "legendary"],
+      "genres": ["rock", "glam rock"],
+      "album_count": 15,
+      "song_count": 180
+    }
+  ],
+  "collaborations": [
+    {
+      "artist1_name": "Queen",
+      "artist2_name": "David Bowie",
+      "recording_name": "Under Pressure",
+      "recording_id": "Recording:999"
+    }
+  ],
   "debug": {
     "prompt": "...full prompt...",
     "context_sections": ["context 1", "context 2"],
     "graph_context": ["Artist A HAS_TAG Tag B"],
     "vector_hits": [{ "id": 123, "label": "Artist", "score": 0.12 }],
-    "tag_term": "jesus"
+    "tag_term": "rock"
   }
 }
 ```
 
-When no tag/genre intent is detected, `artist_tag_search` is omitted. The optional `debug` block appears only when `debug=true` in the request, and the `context` array mirrors the sections sent to the LLM prompt for transparency/debugging on the frontend.
+**Query Types:**
+
+The `query_type` field indicates what kind of query was detected:
+
+| Type | Description | Example Questions |
+|------|-------------|-------------------|
+| `song` | Song/recording search | "canciones de Queen", "songs by The Beatles" |
+| `album` | Album/release search | "álbumes de Coldplay", "discos de rock" |
+| `artist_detail` | Artist information | "¿quién es Adele?", "información sobre Queen" |
+| `collaboration` | Artist collaborations | "colaboraciones de Drake", "feat de Eminem" |
+| `similar` | Similar artists | "artistas similares a Metallica" |
+| `area` | Artists by location | "artistas de México", "músicos de España" |
+| `popular` | Popular/top items | "artistas más populares", "mejores bandas" |
+| `tag` | Tag/genre search | "artistas de rock", "músicos de jazz" |
+| `general` | General question | Any other question |
+
+**Response Arrays:**
+
+- `songs`: Populated when searching for songs/recordings
+- `albums`: Populated when searching for albums/releases
+- `artists`: Populated for artist details, similar artists, area queries, or popular queries
+- `collaborations`: Populated for collaboration queries
+- `artist_tag_search`: Populated for tag/genre artist searches
+
+When no matches are found for a category, the corresponding array is empty. The optional `debug` block appears only when `debug=true` in the request.

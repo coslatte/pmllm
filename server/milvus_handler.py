@@ -53,7 +53,7 @@ async def get_milvus_collection() -> Collection:
             "metric_type": "COSINE",
             "params": {"nlist": 128},
         }
-        await collection.create_index("embedding", index_params)
+        collection.create_index("embedding", index_params)
     else:
         collection = Collection(COLLECTION_NAME)
 
@@ -89,7 +89,7 @@ async def get_user_profile_vector(user_id: str) -> Optional[Dict[str, Any]]:
     """Retrieves the user profile vector and text from Milvus."""
     collection = await get_milvus_collection()
 
-    res = await collection.query(
+    res = collection.query(
         expr=f"id == '{user_id}'", output_fields=["text", "embedding", "updated_at"]
     )
 

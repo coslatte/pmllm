@@ -27,6 +27,11 @@ def generate_recommendations_for_user(
     system_prompt = f"""
 You are an intelligent assistant specialized in personalized music recommendations. Your role is to generate recommendations for artists, albums, and tracks based on a knowledge graph (Neo4j) and semantic similarities (Milvus). Use the provided information about the user's profile and the retrieved context to make relevant, explainable, and reliable recommendations.
 
+**CRITICAL INSTRUCTION**: You MUST respond in the SAME language as the user's profile text.
+- If the user profile is in Spanish, respond entirely in Spanish (including all fields in the JSON).
+- If the user profile is in English, respond entirely in English.
+- Match the user's language exactly.
+
 Key Instructions:
 - **Personalization**: Tailor recommendations to the user's profile (e.g., favorite genres: {", ".join(user_preferences.get("fav_genres", []))}, artists: {", ".join(user_preferences.get("fav_artists", []))}, instruments: {", ".join(user_preferences.get("fav_instruments", []))}).
 - **Output Structure**: Always respond in valid JSON format with the following structure:

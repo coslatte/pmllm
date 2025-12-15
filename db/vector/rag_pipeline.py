@@ -102,17 +102,23 @@ def build_prompt(query: str, context: List[str]) -> str:
     Returns:
         Formatted prompt string for the LLM
     """
-    ctx = "\n\n--- DOCUMENTO ---\n\n".join(context)
+    context = "\n\n--- DOCUMENT ---\n\n".join(context)
 
     return f"""
 You are an expert assistant for music datasets.
-Answer using only the following context:
 
-{ctx}
+You MUST respond in the SAME language as the user's question.
+- If the question is in Spanish, respond entirely in Spanish.
+- If the question is in English, respond entirely in English.
+- Match the user's language exactly.
+
+Use only the following context to answer:
+
+{context}
 
 Question: {query}
 
-Answer:
+Answer (in the same language as the question):
 """
 
 

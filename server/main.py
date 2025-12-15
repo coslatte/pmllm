@@ -6,6 +6,7 @@ from datetime import datetime
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Depends, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
@@ -41,6 +42,21 @@ app = FastAPI(
     title="PMLLM API",
     description="API for Music Recommendation RAG System",
     lifespan=lifespan,
+)
+
+# Configure CORS for frontend access
+# Read allowed origins from environment or use defaults
+CORS_ORIGINS = os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173"
+).split(",")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -125,6 +141,45 @@ class ArtistTagSearch(BaseModel):
     items: List[ArtistTagItem]
 
 
+class SongItem(BaseModel):
+    node_id: str
+    song_name: str
+    artist_name: Optional[str] = None
+    album_name: Optional[str] = None
+    duration_ms: Optional[int] = None
+    duration_formatted: str = "N/A"
+    tags: List[str] = Field(default_factory=list)
+
+
+class AlbumItem(BaseModel):
+    node_id: str
+    album_name: str
+    artist_name: Optional[str] = None
+    release_date: Optional[str] = None
+    track_count: int = 0
+    tags: List[str] = Field(default_factory=list)
+
+
+class ArtistDetailItem(BaseModel):
+    node_id: str
+    artist_name: str
+    area: Optional[str] = None
+    begin_date: Optional[str] = None
+    end_date: Optional[str] = None
+    artist_type: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
+    genres: List[str] = Field(default_factory=list)
+    album_count: int = 0
+    song_count: int = 0
+
+
+class CollaborationItem(BaseModel):
+    artist1_name: str
+    artist2_name: str
+    recording_name: str
+    recording_id: str
+
+
 class QueryDebugInfo(BaseModel):
     prompt: str
     context_sections: List[str]
@@ -137,7 +192,12 @@ class QueryAnswer(BaseModel):
     answer: str
     context: List[str]
     latency_ms: float
+    query_type: str = "general"
     artist_tag_search: Optional[ArtistTagSearch] = None
+    songs: List[SongItem] = Field(default_factory=list)
+    albums: List[AlbumItem] = Field(default_factory=list)
+    artists: List[ArtistDetailItem] = Field(default_factory=list)
+    collaborations: List[CollaborationItem] = Field(default_factory=list)
     debug: Optional[QueryDebugInfo] = None
 
 
@@ -436,6 +496,61 @@ async def query_assistant(payload: QueryRequest, db: Session = Depends(get_db)):
             ],
         )
 
+    # Build song items
+    song_items = [
+        SongItem(
+            node_id=s.node_id,
+            song_name=s.song_name,
+            artist_name=s.artist_name,
+            album_name=s.album_name,
+            duration_ms=s.duration_ms,
+            duration_formatted=s._format_duration(),
+            tags=s.tags,
+        )
+        for s in result.song_matches
+    ]
+
+    # Build album items
+    album_items = [
+        AlbumItem(
+            node_id=a.node_id,
+            album_name=a.album_name,
+            artist_name=a.artist_name,
+            release_date=a.release_date,
+            track_count=a.track_count,
+            tags=a.tags,
+        )
+        for a in result.album_matches
+    ]
+
+    # Build artist detail items
+    artist_items = [
+        ArtistDetailItem(
+            node_id=a.node_id,
+            artist_name=a.artist_name,
+            area=a.area,
+            begin_date=a.begin_date,
+            end_date=a.end_date,
+            artist_type=a.artist_type,
+            tags=a.tags,
+            genres=a.genres,
+            album_count=a.album_count,
+            song_count=a.song_count,
+        )
+        for a in result.artist_matches
+    ]
+
+    # Build collaboration items
+    collab_items = [
+        CollaborationItem(
+            artist1_name=c.artist1_name,
+            artist2_name=c.artist2_name,
+            recording_name=c.recording_name,
+            recording_id=c.recording_id,
+        )
+        for c in result.collaboration_matches
+    ]
+
     debug_payload = None
     if result.debug:
         debug_payload = QueryDebugInfo(
@@ -450,7 +565,12 @@ async def query_assistant(payload: QueryRequest, db: Session = Depends(get_db)):
         answer=result.answer,
         context=result.context,
         latency_ms=latency_ms,
+        query_type=result.query_type,
         artist_tag_search=artist_payload,
+        songs=song_items,
+        albums=album_items,
+        artists=artist_items,
+        collaborations=collab_items,
         debug=debug_payload,
     )
 
