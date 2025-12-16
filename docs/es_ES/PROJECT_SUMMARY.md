@@ -79,8 +79,8 @@ PMLLM es un sistema de Generación Aumentada por Recuperación (RAG) para datos 
 | `milvus-standalone`   | 19530  | Base de datos vectorial para embeddings        |
 | `milvus-etcd`         | -      | Coordinación de metadatos Milvus               |
 | `milvus-minio`        | 19000  | Almacenamiento de objetos para Milvus          |
-| `gemma-embeddings`    | 8082   | Generación de embeddings (servidor llama.cpp)  |
-| `gemma-chat`          | 8081   | Completaciones de chat (servidor llama.cpp)    |
+| `gemma-embeddings`    | 8081   | Generación de embeddings (servidor llama.cpp)  |
+| `gemma-chat`          | 8082   | Completaciones de chat (servidor llama.cpp)    |
 | `pmllm-user-db`       | 5433   | PostgreSQL para datos de usuario/chats         |
 | `pmllm-recommender-api`| 8080  | Backend FastAPI para frontend                  |
 

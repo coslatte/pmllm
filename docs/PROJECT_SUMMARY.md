@@ -79,8 +79,8 @@ PMLLM is a Retrieval-Augmented Generation (RAG) system for music data that combi
 | `milvus-standalone`     | 19530 | Vector database for embeddings                 |
 | `milvus-etcd`           | -     | Milvus metadata coordination                   |
 | `milvus-minio`          | 19000 | Object storage for Milvus                      |
-| `gemma-embeddings`      | 8082  | Embedding generation (llama.cpp server)        |
-| `gemma-chat`            | 8081  | Chat completions (llama.cpp server)            |
+| `gemma-embeddings`      | 8081  | Embedding generation (llama.cpp server)        |
+| `gemma-chat`            | 8082  | Chat completions (llama.cpp server)            |
 | `pmllm-user-db`         | 5433  | PostgreSQL for user data/chats                 |
 | `pmllm-recommender-api` | 8080  | FastAPI backend for frontend                   |
 

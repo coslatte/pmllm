@@ -60,17 +60,17 @@ cp .env.example .env
 | `MODEL_GATEWAY_DEVICE`           | `cpu`                                          | Device hint for the gateway container (e.g., `cuda`, `cpu`).                                 |
 | `MODEL_GATEWAY_DTYPE`            | `float32`                                      | Torch dtype used when loading Gemma inside the gateway container.                           |
 | `MODEL_GATEWAY_MAX_NEW_TOKENS`   | `512`                                          | Hard cap for tokens the gateway itself will generate per response.                           |
-| `EMBEDDING_API_URL`              | `http://localhost:9000/v1/embeddings`          | Host-facing URL for requesting embeddings from the gateway.                                 |
-| `EMBEDDING_MODEL`                | `text-embedding-embeddinggemma-300m-qat`       | Embedding model name echoed in API payloads (helps the gateway pick the right weights).     |
+| `EMBEDDING_API_URL`              | `http://localhost:8081/v1/embeddings`          | Host-facing URL for requesting embeddings (gemma-embeddings container).                     |
+| `EMBEDDING_MODEL`                | `text-embedding-embeddinggemma-300m-qat`       | Embedding model name echoed in API payloads.                                                |
 | `EMBEDDING_API_TIMEOUT`          | `60`                                           | HTTP timeout (seconds) for embedding calls.                                                 |
-| `LLM_API_URL`                    | `http://localhost:9000/v1/chat/completions`    | Host-facing URL for chat completions from the same gateway.                                 |
+| `LLM_API_URL`                    | `http://localhost:8082/v1/chat/completions`    | Host-facing URL for chat completions (gemma-chat container).                                |
 | `LLM_MODEL`                      | `gemma-3-1b-it-qat`                            | Chat model identifier provided in API payloads.                                             |
 | `LLM_MAX_NEW_TOKENS`             | `512`                                          | Default max tokens for generation.                                                          |
 | `LLM_TEMPERATURE`                | `0.7`                                          | Default sampling temperature.                                                               |
 | `LLM_API_TIMEOUT`                | `120`                                          | HTTP timeout (seconds) for chat completions.                                                |
 | `MODEL_API_KEY`                  | _(blank)_                                      | Optional bearer token if you secure the gateway behind auth.                                |
 
-> **Container reminder:** The Gemma embedding + chat models now live inside the `pmllm-model-gateway` container. Keep this service running whenever you build vectors or answer queries. Override the `_API_URL` values with `http://pmllm-model-gateway:9000/...` when calling from another container on the same Docker network.
+> **Container reminder:** The Gemma embedding and chat models run in separate containers (`gemma-embeddings` and `gemma-chat`). Keep these services running whenever you build vectors or answer queries. Override the `_API_URL` values with `http://gemma-embeddings:8080/...` or `http://gemma-chat:8080/...` when calling from another container on the same Docker network.
 
 ## Build Process Configuration
 
