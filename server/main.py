@@ -19,6 +19,7 @@ from server.milvus_handler import upsert_user_profile, get_user_profile_vector
 from server.recommendation_engine import (
     generate_recommendations_for_user,
     recommend_albums_by_genres,
+    recommend_albums_by_preferences,
 )
 from server.query_engine import run_semantic_query
 
@@ -242,6 +243,73 @@ class AlbumRecommendationResponse(BaseModel):
     generated_from: List[str]
     exclude_filters: List[str]
     recommendations: List[AlbumRecommendationItem]
+
+
+# Music metadata models for preference selection
+class GenreInfo(BaseModel):
+    name: str
+    count: int = 0
+    description: Optional[str] = None
+
+
+class TagInfo(BaseModel):
+    name: str
+    count: int = 0
+    description: Optional[str] = None
+
+
+class ArtistInfo(BaseModel):
+    name: str
+    genres: List[str] = Field(default_factory=list)
+    tags: List[str] = Field(default_factory=list)
+    popularity_score: Optional[float] = None
+
+
+class MusicMetadataResponse(BaseModel):
+    genres: List[GenreInfo]
+    tags: List[TagInfo]
+    artists: List[ArtistInfo]
+    total_genres: int
+    total_tags: int
+    total_artists: int
+
+
+# Enhanced recommendation models
+class PersonalizedRecommendationRequest(BaseModel):
+    """Request for personalized album recommendations based on full user preferences."""
+    user_id: Optional[str] = None
+    include_genres: List[str] = Field(default_factory=list)
+    exclude_genres: List[str] = Field(default_factory=list)
+    include_artists: List[str] = Field(default_factory=list)
+    exclude_artists: List[str] = Field(default_factory=list)
+    include_tags: List[str] = Field(default_factory=list)
+    exclude_tags: List[str] = Field(default_factory=list)
+    limit: int = Field(default=12, ge=1, le=50)
+
+
+class PersonalizedAlbumItem(BaseModel):
+    """An album recommendation with detailed match information."""
+    release_id: str
+    release_name: str
+    release_group_name: Optional[str] = None
+    artists: List[str] = Field(default_factory=list)
+    matched_artists: List[str] = Field(default_factory=list)
+    all_genres: List[str] = Field(default_factory=list)
+    matched_genres: List[str] = Field(default_factory=list)
+    tags: List[str] = Field(default_factory=list)
+    matched_tags: List[str] = Field(default_factory=list)
+    genre_match_count: int = 0
+    artist_match_count: int = 0
+    tag_match_count: int = 0
+    score: float
+    match_reasons: List[str] = Field(default_factory=list)
+
+
+class PersonalizedRecommendationResponse(BaseModel):
+    """Response containing personalized album recommendations."""
+    preferences_used: Dict[str, List[str]]
+    total_matches: int
+    recommendations: List[PersonalizedAlbumItem]
 
 
 # Helper to generate profile text
@@ -479,13 +547,14 @@ def get_album_recommendations(
     include_genres = [genre.strip() for genre in payload.include_genres if genre and genre.strip()]
     exclude_genres = [genre.strip() for genre in payload.exclude_genres if genre and genre.strip()]
 
-    if payload.user_id:
+    # Try to load user preferences if no genres provided in request
+    if payload.user_id and not include_genres:
         user = db.query(User).filter(User.id == payload.user_id).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-        prefs = db.query(Preference).filter(Preference.user_id == user.id).first()
-        if not include_genres and prefs:
-            include_genres = prefs.get_genres()
+        if user:
+            prefs = db.query(Preference).filter(Preference.user_id == user.id).first()
+            if prefs:
+                include_genres = prefs.get_genres()
+        # Note: We don't raise 404 if user not found - we just use the provided genres
 
     include_original = sorted({genre for genre in include_genres if genre})
     exclude_original = sorted({genre for genre in exclude_genres if genre})
@@ -516,6 +585,200 @@ def get_album_recommendations(
         generated_from=include_original,
         exclude_filters=exclude_original,
         recommendations=[AlbumRecommendationItem(**item) for item in recommendations],
+    )
+
+
+@app.post("/recommendations/personalized", response_model=PersonalizedRecommendationResponse)
+def get_personalized_recommendations(
+    payload: PersonalizedRecommendationRequest, db: Session = Depends(get_db)
+):
+    """Get personalized album recommendations based on user preferences.
+    
+    This endpoint uses all preference types (genres, artists, tags) to find
+    the most relevant albums. It can either use preferences from the request
+    or load them from the user's stored preferences.
+    
+    If no preferences are provided and user doesn't exist, returns discovery
+    recommendations instead of an error.
+    """
+    include_genres = [g.strip() for g in payload.include_genres if g and g.strip()]
+    exclude_genres = [g.strip() for g in payload.exclude_genres if g and g.strip()]
+    include_artists = [a.strip() for a in payload.include_artists if a and a.strip()]
+    exclude_artists = [a.strip() for a in payload.exclude_artists if a and a.strip()]
+    include_tags = [t.strip() for t in payload.include_tags if t and t.strip()]
+    exclude_tags = [t.strip() for t in payload.exclude_tags if t and t.strip()]
+
+    # If user_id provided, try to load preferences from database
+    # But don't fail if user doesn't exist or DB has issues - use request preferences instead
+    if payload.user_id:
+        try:
+            user = db.query(User).filter(User.id == payload.user_id).first()
+            if user:
+                prefs = db.query(Preference).filter(Preference.user_id == user.id).first()
+                if prefs:
+                    # Only use stored preferences if none were provided in the request
+                    if not include_genres:
+                        include_genres = prefs.get_genres()
+                    if not exclude_genres:
+                        exclude_genres = prefs.get_disliked_genres()
+                    if not include_artists:
+                        include_artists = prefs.get_artists()
+                    if not exclude_artists:
+                        exclude_artists = prefs.get_disliked_artists()
+                    if not include_tags:
+                        include_tags = prefs.get_liked_tags()
+                    if not exclude_tags:
+                        exclude_tags = prefs.get_disliked_tags()
+            # Note: We don't raise 404 if user not found - we just use the provided preferences
+        except Exception as e:
+            # Database query failed - log and continue with request preferences
+            print(f"Warning: Failed to load user preferences from database: {e}")
+            # Don't fail the request - just use whatever preferences were provided
+
+    # If no preferences provided, we'll use an empty search which will trigger
+    # the fallback discovery mode in recommend_albums_by_preferences
+    use_discovery_mode = not include_genres and not include_artists and not include_tags
+
+    try:
+        recommendations = recommend_albums_by_preferences(
+            include_genres=include_genres,
+            exclude_genres=exclude_genres,
+            include_artists=include_artists,
+            exclude_artists=exclude_artists,
+            include_tags=include_tags,
+            exclude_tags=exclude_tags,
+            limit=payload.limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        print(f"Error querying Neo4j for personalized recommendations: {exc}")
+        raise HTTPException(status_code=502, detail="Graph lookup failed. Try again later.") from exc
+
+    preferences_used = {
+        "include_genres": include_genres,
+        "exclude_genres": exclude_genres,
+        "include_artists": include_artists,
+        "exclude_artists": exclude_artists,
+        "include_tags": include_tags,
+        "exclude_tags": exclude_tags,
+    }
+
+    return PersonalizedRecommendationResponse(
+        preferences_used=preferences_used,
+        total_matches=len(recommendations),
+        recommendations=[PersonalizedAlbumItem(**item) for item in recommendations],
+    )
+
+
+@app.get("/metadata/music", response_model=MusicMetadataResponse)
+def get_music_metadata(
+    genre_limit: int = Query(default=30, ge=1, le=100, description="Max genres to return"),
+    tag_limit: int = Query(default=30, ge=1, le=100, description="Max tags to return"),
+    artist_limit: int = Query(default=20, ge=1, le=50, description="Max artists to return"),
+):
+    """Get available genres, tags, and artists for user preference selection.
+    
+    This endpoint queries the Neo4j knowledge graph to retrieve popular
+    music metadata that users can select as preferences.
+    Note: In this database, genres are stored as Tags.
+    """
+    from db.neo4j.neo4j_handler import query_graph
+    
+    genres: List[GenreInfo] = []
+    tags: List[TagInfo] = []
+    artists: List[ArtistInfo] = []
+    total_genres = 0
+    total_tags = 0
+    total_artists = 0
+    
+    try:
+        # Query genres (stored as Tags in this database) with count
+        # Filter to common music genre-like tags
+        genre_query = """
+        MATCH (t:Tag)
+        OPTIONAL MATCH (t)-[r]-(release:Release)
+        WITH t, count(release) AS release_count
+        WHERE release_count > 0
+        RETURN t.name AS name, release_count AS count
+        ORDER BY release_count DESC
+        LIMIT $limit
+        """
+        genre_rows = query_graph(genre_query, {"limit": genre_limit})
+        genres = [
+            GenreInfo(name=row["name"], count=row.get("count", 0))
+            for row in genre_rows if row.get("name")
+        ]
+        
+        # Get total tag count (used as genres)
+        total_genre_query = "MATCH (t:Tag)-[r]-(release:Release) WITH t, count(release) AS c WHERE c > 0 RETURN count(DISTINCT t) AS total"
+        total_genre_result = query_graph(total_genre_query, {})
+        total_genres = total_genre_result[0]["total"] if total_genre_result else 0
+        
+    except Exception as e:
+        print(f"Error fetching genres: {e}")
+    
+    try:
+        # Query all tags with count (same as genres in this database)
+        tag_query = """
+        MATCH (t:Tag)
+        OPTIONAL MATCH (t)-[r]-(entity)
+        WITH t, count(entity) AS entity_count
+        RETURN t.name AS name, entity_count AS count
+        ORDER BY entity_count DESC
+        LIMIT $limit
+        """
+        tag_rows = query_graph(tag_query, {"limit": tag_limit})
+        tags = [
+            TagInfo(name=row["name"], count=row.get("count", 0))
+            for row in tag_rows if row.get("name")
+        ]
+        
+        # Get total tag count
+        total_tag_query = "MATCH (t:Tag) RETURN count(t) AS total"
+        total_tag_result = query_graph(total_tag_query, {})
+        total_tags = total_tag_result[0]["total"] if total_tag_result else 0
+        
+    except Exception as e:
+        print(f"Error fetching tags: {e}")
+    
+    try:
+        # Query popular artists with their tags (tags serve as genres in this database)
+        artist_query = """
+        MATCH (a:Artist)
+        OPTIONAL MATCH (a)-[tr]-(t:Tag)
+        WITH a, 
+             collect(DISTINCT t.name) AS tags
+        WHERE size(tags) > 0
+        RETURN a.name AS name, tags AS genres, tags
+        ORDER BY size(tags) DESC
+        LIMIT $limit
+        """
+        artist_rows = query_graph(artist_query, {"limit": artist_limit})
+        artists = [
+            ArtistInfo(
+                name=row["name"],
+                genres=[g for g in row.get("genres", []) if g],
+                tags=[t for t in row.get("tags", []) if t]
+            )
+            for row in artist_rows if row.get("name")
+        ]
+        
+        # Get total artist count
+        total_artist_query = "MATCH (a:Artist) RETURN count(a) AS total"
+        total_artist_result = query_graph(total_artist_query, {})
+        total_artists = total_artist_result[0]["total"] if total_artist_result else 0
+        
+    except Exception as e:
+        print(f"Error fetching artists: {e}")
+    
+    return MusicMetadataResponse(
+        genres=genres,
+        tags=tags,
+        artists=artists,
+        total_genres=total_genres,
+        total_tags=total_tags,
+        total_artists=total_artists,
     )
 
 

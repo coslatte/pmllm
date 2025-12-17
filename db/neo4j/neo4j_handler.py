@@ -17,7 +17,7 @@ _SAMPLE_HASH_EXPR = "toInteger(coalesce(last(split(elementId(n), ':')), elementI
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "12345678")
-NEO4J_DATABASE = os.getenv("NEO4J_DATABASE", "neo4j")
+NEO4J_DATABASE = os.getenv("NEO4J_DATABASE", "pmllmdb")
 
 # For development/testing only - set NEO4J_ALLOW_INSECURE=true to use default password
 _allow_insecure = os.getenv("NEO4J_ALLOW_INSECURE", "").lower() == "true"

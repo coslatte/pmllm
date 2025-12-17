@@ -263,6 +263,82 @@ Each recommendation item includes:
 - `connections`: the Neo4j relationship types that link the release to those genres (useful for tooltips).
 - `score`: a simple relevance metric based on genre overlap plus supporting artist/tag signals.
 
+#### Personalized Album Recommendations (Updated 2025-12-17)
+
+`POST /recommendations/personalized`
+
+Returns personalized album recommendations using a multi-strategy approach that combines artist name matching, tag/genre searching, and intelligent fallbacks. This endpoint is designed to work even when the knowledge graph has sparse relationship data.
+
+**Request Body:**
+
+```json
+{
+  "user_id": "uuid (optional)",
+  "include_genres": ["rock", "classical"],
+  "exclude_genres": ["metal"],
+  "include_artists": ["Erik Satie", "Beethoven"],
+  "exclude_artists": [],
+  "include_tags": ["piano", "instrumental"],
+  "exclude_tags": [],
+  "limit": 12
+}
+```
+
+- When `user_id` is provided and no explicit preferences are given, the API loads preferences from the user's stored profile.
+- All include/exclude arrays are optional but at least one include preference (genre, artist, or tag) is required.
+
+**Response:**
+
+```json
+{
+  "preferences_used": {
+    "include_genres": ["rock", "classical"],
+    "exclude_genres": ["metal"],
+    "include_artists": ["erik satie", "beethoven"],
+    "exclude_artists": [],
+    "include_tags": ["piano", "instrumental"],
+    "exclude_tags": []
+  },
+  "total_matches": 12,
+  "recommendations": [
+    {
+      "release_id": "4:xxx:12345",
+      "release_name": "Piano Works",
+      "release_group_name": "Piano Works",
+      "artists": ["Erik Satie"],
+      "matched_artists": ["Erik Satie"],
+      "all_genres": [],
+      "matched_genres": [],
+      "tags": [],
+      "matched_tags": [],
+      "genre_match_count": 0,
+      "artist_match_count": 1,
+      "tag_match_count": 0,
+      "score": 5.0,
+      "match_reasons": ["Artista: Erik Satie"]
+    }
+  ]
+}
+```
+
+**Scoring System:**
+
+| Match Type           | Score  | Description                                |
+|---------------------|--------|---------------------------------------------|
+| Exact artist match  | 5.0    | Artist name matches via regex              |
+| Tag/genre match     | 3.0    | Release has matching HAS_TAG relationship  |
+| Fallback with artist| 1.0    | Album has artist data but no direct match  |
+| Fallback with tags  | 0.5    | Album has tags but no direct match         |
+| Pure discovery      | 0.1    | Random album for exploration               |
+
+**Match Reasons (Spanish):**
+
+- `"Artista: Name"` - Direct artist match
+- `"Artista similar: Name"` - Partial name match
+- `"Género: rock, jazz"` - Tag/genre matches
+- `"Por Artist1, Artist2"` - Fallback with known artists
+- `"Descubrimiento musical"` - Pure discovery item
+
 ### Conversational Queries
 
 #### Ask the Assistant

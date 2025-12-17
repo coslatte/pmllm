@@ -263,6 +263,82 @@ Cada elemento incluye:
 - `connections`: tipos de relación en Neo4j que justifican la sugerencia (útil para tooltips o explicaciones).
 - `score`: métrica simple basada en el solapamiento de géneros más señales de artistas/tags.
 
+#### Recomendaciones de Álbumes Personalizadas (Actualizado 2025-12-17)
+
+`POST /recommendations/personalized`
+
+Devuelve recomendaciones de álbumes personalizadas usando un enfoque multi-estrategia que combina búsqueda por nombre de artista, búsqueda por tags/géneros y fallbacks inteligentes. Este endpoint está diseñado para funcionar incluso cuando el grafo de conocimiento tiene datos de relaciones escasos.
+
+**Cuerpo de la Petición:**
+
+```json
+{
+  "user_id": "uuid (opcional)",
+  "include_genres": ["rock", "classical"],
+  "exclude_genres": ["metal"],
+  "include_artists": ["Erik Satie", "Beethoven"],
+  "exclude_artists": [],
+  "include_tags": ["piano", "instrumental"],
+  "exclude_tags": [],
+  "limit": 12
+}
+```
+
+- Cuando se proporciona `user_id` y no se dan preferencias explícitas, la API carga las preferencias del perfil almacenado del usuario.
+- Todos los arrays include/exclude son opcionales pero se requiere al menos una preferencia de inclusión (género, artista o tag).
+
+**Respuesta:**
+
+```json
+{
+  "preferences_used": {
+    "include_genres": ["rock", "classical"],
+    "exclude_genres": ["metal"],
+    "include_artists": ["erik satie", "beethoven"],
+    "exclude_artists": [],
+    "include_tags": ["piano", "instrumental"],
+    "exclude_tags": []
+  },
+  "total_matches": 12,
+  "recommendations": [
+    {
+      "release_id": "4:xxx:12345",
+      "release_name": "Piano Works",
+      "release_group_name": "Piano Works",
+      "artists": ["Erik Satie"],
+      "matched_artists": ["Erik Satie"],
+      "all_genres": [],
+      "matched_genres": [],
+      "tags": [],
+      "matched_tags": [],
+      "genre_match_count": 0,
+      "artist_match_count": 1,
+      "tag_match_count": 0,
+      "score": 5.0,
+      "match_reasons": ["Artista: Erik Satie"]
+    }
+  ]
+}
+```
+
+**Sistema de Puntuación:**
+
+| Tipo de Coincidencia    | Puntuación | Descripción                                |
+|------------------------|------------|---------------------------------------------|
+| Coincidencia de artista| 5.0        | Nombre del artista coincide via regex      |
+| Coincidencia de tag    | 3.0        | Release tiene relación HAS_TAG coincidente |
+| Fallback con artista   | 1.0        | Álbum tiene datos de artista pero no match |
+| Fallback con tags      | 0.5        | Álbum tiene tags pero no match directo     |
+| Descubrimiento puro    | 0.1        | Álbum aleatorio para exploración           |
+
+**Razones de Coincidencia:**
+
+- `"Artista: Nombre"` - Coincidencia directa de artista
+- `"Artista similar: Nombre"` - Coincidencia parcial de nombre
+- `"Género: rock, jazz"` - Coincidencias de tag/género
+- `"Por Artist1, Artist2"` - Fallback con artistas conocidos
+- `"Descubrimiento musical"` - Item de descubrimiento puro
+
 ### Consultas Conversacionales
 
 #### Preguntar al Asistente

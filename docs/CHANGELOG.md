@@ -9,6 +9,31 @@ This file documents all changes made to the project, especially those implemente
 > generation endpoints. Configuration variables such as `EMBEDDING_API_URL`,
 > `LLM_API_URL`, `EMBEDDING_MODEL` and `LLM_MODEL` control the gateway behavior.
 
+## 2025-12-17
+
+### Personalized Recommendations Engine Overhaul
+
+- **Multi-Strategy Recommendation System**: Completely rewrote `recommend_albums_by_preferences()` in `server/recommendation_engine.py` to use a three-tier fallback strategy:
+  1. **Artist Name Search**: Fuzzy regex matching against artist names in the graph
+  2. **Tag/Genre Search**: Direct graph traversal for releases with matching tags
+  3. **Intelligent Fallback**: Returns releases with available metadata when specific matches are sparse
+  
+- **New Helper Functions**:
+  - `_search_releases_by_artist_name()`: Finds releases by artist name using regex patterns
+  - `_search_releases_by_tags()`: Queries releases connected to specified tags
+  - `_get_fallback_releases()`: Retrieves releases with metadata for discovery recommendations
+  - `_process_recommendation_rows()`: Unified row processing with match reason generation
+
+- **Sparse Data Handling**: The system now gracefully handles databases with limited relationship data (e.g., few HAS_TAG or RELEASED connections) by falling back to name-based searches and discovery recommendations.
+
+- **Spanish Match Reasons**: Recommendation explanations now use Spanish labels ("Artista:", "Género:", "Por", "Descubrimiento musical") for better UX consistency with the frontend.
+
+- **Improved Score Calculation**: Relevance scores now range from 0.1 (fallback) to 5.0+ (exact artist match), with clear weighting:
+  - Artist matches: 5.0 points per match
+  - Tag/genre matches: 3.0 points per match
+  - Fallback with artist data: 1.0 point
+  - Pure discovery: 0.5 points
+
 ## 2025-12-14
 
 - **Embedding Endpoint Fix**: Fixed the model gateway to support both `/embeddings` and `/v1/embeddings` paths for OpenAI-compatible API calls. The llama.cpp containers expose embeddings on `/v1/embeddings`, so the embedder now correctly routes requests.

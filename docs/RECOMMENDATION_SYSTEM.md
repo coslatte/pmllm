@@ -93,3 +93,55 @@ Instructions:
 - **Confidence floor**: Favor items scoring ≥ 0.7; when nothing meets the bar, emit `"Insufficient recommendations available"` plus a request for more data.
 - **Coverage rules**: Return 5–10 entries whenever adequate data exists and mix recommendation types when the query spans multiple intents.
 - **Ambiguity handling**: If the query is vague, explicitly ask for clarification inside `general_summary` instead of hallucinating.
+
+## 10. Database-Driven Album Recommendations (Updated 2025-12-17)
+
+The `recommend_albums_by_preferences()` function in `server/recommendation_engine.py` implements a multi-strategy approach for finding relevant albums when the knowledge graph has sparse relationship data.
+
+### 10.1 Strategy Overview
+
+The system uses a three-tier fallback strategy:
+
+1. **Strategy 1: Artist Name Search** (Highest Priority)
+   - Regex matching on Artist.name
+   - Finds releases via RELEASED relationship OR name matching
+   - Score: 5.0 per matched artist
+
+2. **Strategy 2: Tag/Genre Search**
+   - Direct HAS_TAG relationship traversal
+   - Excludes already-found releases
+   - Score: 3.0 per matched tag
+
+3. **Strategy 3: Intelligent Fallback**
+   - Returns releases with any connected metadata
+   - Prioritizes releases with artists/tags
+   - Score: 0.1 - 1.0 (discovery mode)
+
+### 10.2 Scoring System
+
+| Match Type           | Score  | Example                                    |
+|---------------------|--------|---------------------------------------------|
+| Exact artist match  | 5.0    | Search "Erik Satie" -> "Piano Works"        |
+| Tag/genre match     | 3.0    | Search "rock" -> Albums with rock tag       |
+| Fallback with artist| 1.0    | Album has artist data but no match         |
+| Fallback with tags  | 0.5    | Album has tags but no match                |
+| Pure discovery      | 0.1    | Random album for exploration               |
+
+### 10.3 Match Reasons
+
+Each recommendation includes human-readable `match_reasons` in Spanish:
+
+- `"Artista: Erik Satie"` - Direct artist match
+- `"Artista similar: Name"` - Partial name match
+- `"Genero: rock, jazz"` - Tag/genre matches
+- `"Por Artist1, Artist2"` - Fallback with known artists
+- `"Descubrimiento musical"` - Pure discovery item
+
+### 10.4 Handling Sparse Data
+
+The system is designed to work even when:
+- Most releases lack HAS_TAG relationships
+- Few RELEASED relationships exist between artists and releases
+- The graph was imported with minimal sampling
+
+In these cases, the fallback strategy ensures users always receive recommendations, labeled appropriately as "discovery" items.
