@@ -7,29 +7,51 @@ import os
 import sys
 import pytest
 from datetime import datetime
+from unittest.mock import patch, AsyncMock
 
 # Add project root to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from fastapi.testclient import TestClient
-
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+from server.database import Base
 
 @pytest.fixture(scope="module")
 def client():
     """Create a test client for the FastAPI app."""
-    # Set test environment
-    os.environ["CHAT_DB_URL"] = "sqlite:///./test_api.db"
+    # Setup in-memory DB
+    # Use StaticPool to share the same in-memory database across all connections
+    engine = create_engine(
+        "sqlite:///:memory:", 
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool
+    )
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    
+    # Create tables
+    Base.metadata.create_all(bind=engine)
+
+    def override_get_db():
+        try:
+            db = TestingSessionLocal()
+            yield db
+        finally:
+            db.close()
+
+    # Set test environment variables (for other components)
+    os.environ["CHAT_DB_URL"] = "sqlite:///:memory:"
     os.environ["MILVUS_HOST"] = "localhost"
     os.environ["MILVUS_PORT"] = "19530"
     
-    from server.main import app
+    from server.main import app, get_db
+    app.dependency_overrides[get_db] = override_get_db
     
-    with TestClient(app) as test_client:
-        yield test_client
-    
-    # Cleanup
-    if os.path.exists("./test_api.db"):
-        os.remove("./test_api.db")
+    # Mock Milvus handler
+    with patch("server.main.upsert_user_profile", new_callable=AsyncMock) as mock_upsert:
+        with TestClient(app) as test_client:
+            yield test_client
 
 
 class TestUserEndpoints:
@@ -48,8 +70,8 @@ class TestUserEndpoints:
         """Test creating a user with the same username."""
         client.post("/users", json={"username": "duplicate_user"})
         response = client.post("/users", json={"username": "duplicate_user"})
-        # Should still work - usernames don't need to be unique
-        assert response.status_code == 200
+        # Should fail - usernames must be unique
+        assert response.status_code == 400
 
 
 class TestPreferencesEndpoints:
@@ -67,14 +89,44 @@ class TestPreferencesEndpoints:
             json={
                 "user_id": user_id,
                 "fav_genres": ["rock", "jazz"],
+                "disliked_genres": ["pop"],
                 "fav_artists": ["Queen", "Miles Davis"],
-                "fav_instruments": ["guitar", "saxophone"],
+                "disliked_artists": ["Justin Bieber"],
+                "liked_tags": ["classic", "instrumental"],
+                "disliked_tags": ["electronic"],
             },
         )
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"
         assert "profile_text" in data
+
+    def test_get_preferences(self, client):
+        """Test retrieving user preferences."""
+        # Create user
+        user_response = client.post("/users", json={"username": "get_pref_user"})
+        user_id = user_response.json()["id"]
+
+        # Set preferences
+        client.post(
+            "/preferences",
+            json={
+                "user_id": user_id,
+                "fav_genres": ["pop"],
+                "fav_artists": ["Madonna"],
+                "liked_tags": ["80s"],
+            },
+        )
+
+        # Get preferences
+        response = client.get(f"/preferences?user_id={user_id}")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["user_id"] == user_id
+        assert data["fav_genres"] == ["pop"]
+        assert data["fav_artists"] == ["Madonna"]
+        assert data["liked_tags"] == ["80s"]
+        assert data["disliked_genres"] == []
 
     def test_update_preferences_invalid_user(self, client):
         """Test updating preferences for non-existent user."""

@@ -85,9 +85,26 @@ class UserResponse(BaseModel):
 
 class PreferencesInput(BaseModel):
     user_id: str
+    fav_genres: List[str] = []
+    disliked_genres: List[str] = []
+    fav_artists: List[str] = []
+    disliked_artists: List[str] = []
+    liked_tags: List[str] = []
+    disliked_tags: List[str] = []
+
+
+class PreferencesResponse(BaseModel):
+    user_id: str
     fav_genres: List[str]
+    disliked_genres: List[str]
     fav_artists: List[str]
-    fav_instruments: List[str]
+    disliked_artists: List[str]
+    liked_tags: List[str]
+    disliked_tags: List[str]
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
 
 
 class ChatCreate(BaseModel):
@@ -229,15 +246,26 @@ class AlbumRecommendationResponse(BaseModel):
 
 # Helper to generate profile text
 def generate_profile_text(
-    genres: List[str], artists: List[str], instruments: List[str]
+    fav_genres: List[str],
+    disliked_genres: List[str],
+    fav_artists: List[str],
+    disliked_artists: List[str],
+    liked_tags: List[str],
+    disliked_tags: List[str],
 ) -> str:
     parts = []
-    if genres:
-        parts.append(f"likes {', '.join(genres)} music")
-    if artists:
-        parts.append(f"favorite artists include {', '.join(artists)}")
-    if instruments:
-        parts.append(f"enjoys listening to {', '.join(instruments)}")
+    if fav_genres:
+        parts.append(f"likes {', '.join(fav_genres)} music")
+    if disliked_genres:
+        parts.append(f"dislikes {', '.join(disliked_genres)} music")
+    if fav_artists:
+        parts.append(f"favorite artists include {', '.join(fav_artists)}")
+    if disliked_artists:
+        parts.append(f"dislikes artists like {', '.join(disliked_artists)}")
+    if liked_tags:
+        parts.append(f"interested in {', '.join(liked_tags)}")
+    if disliked_tags:
+        parts.append(f"not interested in {', '.join(disliked_tags)}")
 
     if not parts:
         return "User has no specific musical preferences listed."
@@ -275,13 +303,21 @@ async def update_preferences(prefs: PreferencesInput, db: Session = Depends(get_
         db.add(db_prefs)
 
     db_prefs.set_genres(prefs.fav_genres)
+    db_prefs.set_disliked_genres(prefs.disliked_genres)
     db_prefs.set_artists(prefs.fav_artists)
-    db_prefs.set_instruments(prefs.fav_instruments)
+    db_prefs.set_disliked_artists(prefs.disliked_artists)
+    db_prefs.set_liked_tags(prefs.liked_tags)
+    db_prefs.set_disliked_tags(prefs.disliked_tags)
     db.commit()
 
     # Generate text description
     profile_text = generate_profile_text(
-        prefs.fav_genres, prefs.fav_artists, prefs.fav_instruments
+        prefs.fav_genres,
+        prefs.disliked_genres,
+        prefs.fav_artists,
+        prefs.disliked_artists,
+        prefs.liked_tags,
+        prefs.disliked_tags,
     )
 
     # Update Milvus
@@ -297,6 +333,39 @@ async def update_preferences(prefs: PreferencesInput, db: Session = Depends(get_
         "status": "success",
         "message": "Preferences updated and vector store synchronized",
         "profile_text": profile_text,
+    }
+
+
+@app.get("/preferences", response_model=PreferencesResponse)
+def get_preferences(user_id: str = Query(..., description="User ID"), db: Session = Depends(get_db)):
+    # Check if user exists
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    db_prefs = db.query(Preference).filter(Preference.user_id == user_id).first()
+    
+    if not db_prefs:
+        return {
+            "user_id": user_id,
+            "fav_genres": [],
+            "disliked_genres": [],
+            "fav_artists": [],
+            "disliked_artists": [],
+            "liked_tags": [],
+            "disliked_tags": [],
+            "updated_at": None
+        }
+
+    return {
+        "user_id": db_prefs.user_id,
+        "fav_genres": db_prefs.get_genres(),
+        "disliked_genres": db_prefs.get_disliked_genres(),
+        "fav_artists": db_prefs.get_artists(),
+        "disliked_artists": db_prefs.get_disliked_artists(),
+        "liked_tags": db_prefs.get_liked_tags(),
+        "disliked_tags": db_prefs.get_disliked_tags(),
+        "updated_at": db_prefs.updated_at
     }
 
 
@@ -362,14 +431,17 @@ async def get_recommendations(user_id: str = Query(..., description="Target user
 
     user_prefs = {
         "fav_genres": prefs.get_genres(),
+        "disliked_genres": prefs.get_disliked_genres(),
         "fav_artists": prefs.get_artists(),
-        "fav_instruments": prefs.get_instruments(),
+        "disliked_artists": prefs.get_disliked_artists(),
+        "liked_tags": prefs.get_liked_tags(),
+        "disliked_tags": prefs.get_disliked_tags(),
     }
 
     if not any(user_prefs.values()):
         raise HTTPException(
             status_code=400,
-            detail="User preferences are empty. Add at least one genre, artist, or instrument before requesting recommendations.",
+            detail="User preferences are empty. Add at least one preference before requesting recommendations.",
         )
 
     try:
@@ -384,8 +456,11 @@ async def get_recommendations(user_id: str = Query(..., description="Target user
     else:
         profile_text = generate_profile_text(
             user_prefs["fav_genres"],
+            user_prefs["disliked_genres"],
             user_prefs["fav_artists"],
-            user_prefs["fav_instruments"],
+            user_prefs["disliked_artists"],
+            user_prefs["liked_tags"],
+            user_prefs["disliked_tags"],
         )
 
     try:

@@ -46,35 +46,59 @@ class Preference(Base):
 
     user_id = Column(String, ForeignKey("users.id"), primary_key=True)
     fav_genres = Column(Text)  # Stored as JSON
+    disliked_genres = Column(Text)  # Stored as JSON
     fav_artists = Column(Text)  # Stored as JSON
-    fav_instruments = Column(Text)  # Stored as JSON
+    disliked_artists = Column(Text)  # Stored as JSON
+    liked_tags = Column(Text)  # Stored as JSON
+    disliked_tags = Column(Text)  # Stored as JSON
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = relationship("User", back_populates="preferences")
 
+    def _set_list(self, field_name: str, values: List[str]):
+        setattr(self, field_name, json.dumps(values))
+
+    def _get_list(self, field_name: str) -> List[str]:
+        val = getattr(self, field_name)
+        if isinstance(val, str):
+            return json.loads(val)
+        return []
+
     def set_genres(self, genres: List[str]):
-        self.fav_genres = json.dumps(genres)
+        self._set_list("fav_genres", genres)
 
     def get_genres(self) -> List[str]:
-        if isinstance(self.fav_genres, str):
-            return json.loads(self.fav_genres)
-        return []
+        return self._get_list("fav_genres")
+
+    def set_disliked_genres(self, genres: List[str]):
+        self._set_list("disliked_genres", genres)
+
+    def get_disliked_genres(self) -> List[str]:
+        return self._get_list("disliked_genres")
 
     def set_artists(self, artists: List[str]):
-        self.fav_artists = json.dumps(artists)
+        self._set_list("fav_artists", artists)
 
     def get_artists(self) -> List[str]:
-        if isinstance(self.fav_artists, str):
-            return json.loads(self.fav_artists)
-        return []
+        return self._get_list("fav_artists")
 
-    def set_instruments(self, instruments: List[str]):
-        self.fav_instruments = json.dumps(instruments)
+    def set_disliked_artists(self, artists: List[str]):
+        self._set_list("disliked_artists", artists)
 
-    def get_instruments(self) -> List[str]:
-        if isinstance(self.fav_instruments, str):
-            return json.loads(self.fav_instruments)
-        return []
+    def get_disliked_artists(self) -> List[str]:
+        return self._get_list("disliked_artists")
+
+    def set_liked_tags(self, tags: List[str]):
+        self._set_list("liked_tags", tags)
+
+    def get_liked_tags(self) -> List[str]:
+        return self._get_list("liked_tags")
+
+    def set_disliked_tags(self, tags: List[str]):
+        self._set_list("disliked_tags", tags)
+
+    def get_disliked_tags(self) -> List[str]:
+        return self._get_list("disliked_tags")
 
 
 class Chat(Base):
